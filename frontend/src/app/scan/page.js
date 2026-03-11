@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProgressBar from '../../components/ProgressBar';
@@ -9,6 +9,14 @@ import FixModal from '../../components/FixModal';
 import StatsCards from '../../components/StatsCards';
 
 export default function ScanAllPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Loading...</div>}>
+      <ScanAllContent />
+    </Suspense>
+  );
+}
+
+function ScanAllContent() {
   const searchParams = useSearchParams();
   const [scanState, setScanState] = useState('idle');
   const [progress, setProgress] = useState(null);
