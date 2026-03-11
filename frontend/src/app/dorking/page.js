@@ -23,7 +23,7 @@ export default function DorkingPage() {
     setSubdomains(null);
     setErrorMsg('');
     try {
-      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/subdomain`, {
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:6969'}/api/subdomain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: d }),
@@ -32,7 +32,7 @@ export default function DorkingPage() {
       setSubdomains(data);
       setState('results');
     } catch {
-      setErrorMsg('Backend connection error. Make sure backend is running on port 8000.');
+      setErrorMsg('Backend connection error. Make sure backend is running on port 6969.');
       setState('error');
     }
   }, [domain]);

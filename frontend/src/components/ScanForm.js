@@ -13,7 +13,7 @@ export default function ScanForm({ onSubmit, onSubdomainScan, onMassScan }) {
   useEffect(() => {
     if (mode === 'select' && modules.length === 0) {
       setLoadingModules(true);
-      fetch('http://127.0.0.1:8000/api/modules')
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:6969'}/api/modules`)
         .then(r => r.json())
         .then(data => {
           setModules(data.modules || []);

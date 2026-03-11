@@ -51,7 +51,7 @@ export default function FixModal({ vuln, onClose }) {
     stepTimerRef.current = setTimeout(advanceStep, AI_STEPS[0].duration);
 
     try {
-      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/ai-fix`, {
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:6969'}/api/ai-fix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -40,7 +40,7 @@ export default function ScanAllPage() {
     setProgress(null);
     setErrorMsg('');
 
-    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000'}/ws/scan`);
+    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:6969'}/ws/scan`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -65,7 +65,7 @@ export default function ScanAllPage() {
     };
 
     ws.onerror = () => {
-      setErrorMsg('Connection error. Make sure backend is running on port 8000.');
+      setErrorMsg('Connection error. Make sure backend is running on port 6969.');
       setScanState('error');
     };
 
@@ -76,7 +76,7 @@ export default function ScanAllPage() {
 
   const exportReport = (fmt) => {
     if (!scanId) return;
-    window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/export/${scanId}/${fmt}`, '_blank');
+    window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:6969'}/api/export/${scanId}/${fmt}`, '_blank');
   };
 
   const resetScan = () => {

@@ -27,7 +27,7 @@ from backend.scanner.subdomain import discover_subdomains
 app = FastAPI(title="VulnScanner", version="1.0.0")
 
 # CORS - allow frontend from any origin (VPS deployment)
-ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:4200,http://127.0.0.1:4200").split(",")
 
 app.add_middleware(
     CORSMiddleware,

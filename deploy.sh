@@ -49,8 +49,8 @@ cd frontend
 
 # Create .env.local for VPS
 cat > .env.local << EOF
-NEXT_PUBLIC_API_URL=http://${VPS_IP}:8000
-NEXT_PUBLIC_WS_URL=ws://${VPS_IP}:8000
+NEXT_PUBLIC_API_URL=http://${VPS_IP}:6969
+NEXT_PUBLIC_WS_URL=ws://${VPS_IP}:6969
 EOF
 
 npm install
@@ -61,7 +61,7 @@ cd "$PROJECT_DIR"
 # --- Set backend env ---
 echo ""
 echo "[4/6] Configuring backend..."
-export ALLOWED_ORIGINS="http://${VPS_IP}:3000,http://localhost:3000,http://127.0.0.1:3000"
+export ALLOWED_ORIGINS="http://${VPS_IP}:4200,http://localhost:4200,http://127.0.0.1:4200"
 export GEMINI_API_KEY="${GEMINI_API_KEY:-}"
 
 # --- Create systemd services ---
@@ -78,8 +78,8 @@ After=network.target
 Type=simple
 User=$(whoami)
 WorkingDirectory=${PROJECT_DIR}
-Environment=ALLOWED_ORIGINS=http://${VPS_IP}:3000,http://localhost:3000,http://127.0.0.1:3000
-ExecStart=${PROJECT_DIR}/venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000
+Environment=ALLOWED_ORIGINS=http://${VPS_IP}:4200,http://localhost:4200,http://127.0.0.1:4200
+ExecStart=${PROJECT_DIR}/venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 6969
 Restart=always
 RestartSec=5
 
@@ -97,7 +97,7 @@ After=network.target
 Type=simple
 User=$(whoami)
 WorkingDirectory=${PROJECT_DIR}/frontend
-ExecStart=$(which npm) run start -- -p 3000
+ExecStart=$(which npm) run start -- -p 4200
 Restart=always
 RestartSec=5
 
@@ -127,10 +127,10 @@ echo ""
 BACKEND_STATUS=$(systemctl is-active vulnscanner-backend)
 FRONTEND_STATUS=$(systemctl is-active vulnscanner-frontend)
 
-echo "  Backend:  $BACKEND_STATUS  -> http://${VPS_IP}:8000"
-echo "  Frontend: $FRONTEND_STATUS  -> http://${VPS_IP}:3000"
+echo "  Backend:  $BACKEND_STATUS  -> http://${VPS_IP}:6969"
+echo "  Frontend: $FRONTEND_STATUS  -> http://${VPS_IP}:4200"
 echo ""
-echo "  Buka di browser: http://${VPS_IP}:3000"
+echo "  Buka di browser: http://${VPS_IP}:4200"
 echo ""
 echo "=========================================="
 echo "  Useful Commands:"
