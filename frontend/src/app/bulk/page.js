@@ -156,6 +156,7 @@ export default function BulkScanPage() {
             <Link href="/scan" className="px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg transition-colors">Scan All</Link>
             <Link href="/bulk" className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg font-medium">Bulk Scan</Link>
             <Link href="/dorking" className="px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg transition-colors">Dorking</Link>
+            <Link href="/modules" className="px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg transition-colors">Modules</Link>
             {scanState !== 'idle' && (
               <button onClick={resetScan} className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
                 New Scan

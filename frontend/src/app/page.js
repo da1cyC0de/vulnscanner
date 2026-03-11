@@ -52,6 +52,7 @@ export default function Home() {
             <Link href="/scan" className="px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg transition-colors">Scan All</Link>
             <Link href="/bulk" className="px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg transition-colors">Bulk Scan</Link>
             <Link href="/dorking" className="px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg transition-colors">Dorking</Link>
+            <Link href="/modules" className="px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg transition-colors">Modules</Link>
           </div>
         </div>
       </header>
