@@ -10,8 +10,8 @@ echo "=========================================="
 echo "  VulnScanner VPS Deployment"
 echo "=========================================="
 
-# --- Detect IP ---
-VPS_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+# --- Detect IP (force IPv4) ---
+VPS_IP=$(curl -4 -s ifconfig.me 2>/dev/null || curl -4 -s api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
 echo "[*] VPS IP detected: $VPS_IP"
 
 # --- Install dependencies ---
