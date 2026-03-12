@@ -21,6 +21,14 @@ class CveScanner(BaseModule):
       CVE-2026-32248  — Parse Server Account Takeover (CVSS 9.3)
       CVE-2026-32142  — Shopware /api/_info/config Disclosure (CVSS 5.3)
       CVE-2026-32230  — Uptime Kuma Private Monitor Exposure (CVSS 5.3)
+      CVE-2026-27971  — Qwik Unsafe Deserialization RCE (CVSS 9.8, EPSS 13.43%)
+      CVE-2026-30821  — Flowise Unauthenticated File Upload / RCE (CVSS 9.8)
+      CVE-2026-29053  — Ghost CMS Malicious Theme RCE (CVSS 9.8)
+      CVE-2026-32140  — Dataease JDBC IniFile RCE (CVSS 9.3, 2026-03-12)
+      CVE-2026-27975  — Ajenti Unauthenticated RCE (CVSS 9.8)
+      CVE-2026-32136  — AdGuard Home h2c Auth Bypass (CVSS Critical, 2026-03-13)
+      CVE-2026-28697  — Craft CMS Twig SSTI RCE (CVSS 9.4)
+      CVE-2026-30957  — OneUptime Synthetic Monitor RCE (CVSS 9.9)
     """
 
     async def scan(self, target_url: str, session: aiohttp.ClientSession) -> list[VulnerabilityResult]:
@@ -41,6 +49,14 @@ class CveScanner(BaseModule):
         results.extend(await self._check_parse_server(session, target_url, html or ""))
         results.extend(await self._check_shopware(session, target_url, html or ""))
         results.extend(await self._check_uptime_kuma(session, target_url))
+        results.extend(await self._check_qwik(session, target_url, html or ""))
+        results.extend(await self._check_flowise(session, target_url, html or ""))
+        results.extend(await self._check_ghost(session, target_url, html or ""))
+        results.extend(await self._check_dataease(session, target_url, html or ""))
+        results.extend(await self._check_ajenti(session, target_url))
+        results.extend(await self._check_adguard_home(session, target_url))
+        results.extend(await self._check_craft_cms(session, target_url, html or ""))
+        results.extend(await self._check_oneuptime(session, target_url))
 
         return results
 
@@ -792,5 +808,447 @@ class CveScanner(BaseModule):
             ),
             detected=detected,
             endpoint=target_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_qwik(self, session, target_url, html) -> list:
+        """CVE-2026-27971 — Qwik <=1.19.0 unsafe server$ RPC deserialization → unauthenticated RCE.
+        EPSS 13.43% — highest exploitation probability of all 2026 CVEs so far."""
+        detected = False
+        rpc_url = ""
+        evidence = ""
+
+        is_qwik = (
+            "qwik" in html.lower()
+            or "/build/q-" in html
+            or "QwikCity" in html
+            or 'type="qwik"' in html
+        )
+
+        if is_qwik:
+            for path in ["_qwik/fn/", "q-data.json", "build/q-manifest.json"]:
+                url = urljoin(target_url.rstrip("/") + "/", path)
+                try:
+                    async with session.get(url, ssl=False,
+                                           timeout=aiohttp.ClientTimeout(total=6),
+                                           headers=self._default_headers()) as r:
+                        if r.status in (200, 405):
+                            detected = True
+                            rpc_url = url
+                            evidence = (
+                                f"CVE-2026-27971: Qwik framework detected (EPSS 13.43%). "
+                                f"Endpoint {url} accessible. Qwik <=1.19.0 — single HTTP "
+                                f"request with crafted serialized payload → unauthenticated RCE. "
+                                f"Fix: upgrade Qwik >= 1.19.1 immediately."
+                            )
+                            break
+                except Exception:
+                    pass
+                if detected:
+                    break
+
+            if not detected:
+                detected = True
+                rpc_url = target_url
+                evidence = (
+                    "CVE-2026-27971: Qwik framework detected in page source (EPSS 13.43%). "
+                    "Verify Qwik version <= 1.19.0 — unsafe deserialization in server$ RPC. "
+                    "Fix: upgrade >= 1.19.1."
+                )
+
+        return [self.make_result(
+            bug_id="CVE-2026-27971",
+            name="Qwik server$ RPC Unsafe Deserialization (RCE)",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-27971: Qwik <=1.19.0 — unsafe deserialization dalam server$ RPC "
+                "mechanism memungkinkan unauthenticated attacker execute arbitrary code "
+                "pada server dengan single HTTP request. EPSS 13.43% (sangat aktif diexploit). "
+                "Fix: upgrade Qwik >= 1.19.1."
+            ),
+            detected=detected,
+            endpoint=rpc_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_flowise(self, session, target_url, html) -> list:
+        """CVE-2026-30821 — Flowise <3.0.13 unauthenticated file upload bypass → RCE (CVSS 9.8)."""
+        detected = False
+        flowise_url = ""
+        evidence = ""
+
+        is_flowise = "flowise" in html.lower() or "Flowise" in html
+
+        for path in ["api/v1/chatflows", "api/v1/tools", "api/v1/assistants"]:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False,
+                                       timeout=aiohttp.ClientTimeout(total=6),
+                                       headers=self._default_headers()) as r:
+                    if r.status == 200:
+                        text = await r.text(errors="replace")
+                        if any(k in text for k in ["chatflowId", "flowData", "flowise", '"id"', '"name"']):
+                            flowise_url = url
+                            detected = True
+                            evidence = (
+                                f"CVE-2026-30821: Flowise API exposed at {url}. "
+                                f"Flowise <3.0.13 — /api/v1/attachments endpoint in WHITELIST_URLS "
+                                f"allows unauthenticated MIME-spoofed file upload (PDF→PHP/JS). "
+                                f"Chain with static hosting → RCE. Fix: upgrade >= 3.0.13."
+                            )
+                            break
+            except Exception:
+                pass
+            if detected:
+                break
+
+        if not detected and is_flowise:
+            detected = True
+            flowise_url = target_url
+            evidence = (
+                "CVE-2026-30821: Flowise detected in page source. "
+                "Versions <3.0.13 vulnerable to unauthenticated file upload bypass → RCE."
+            )
+
+        return [self.make_result(
+            bug_id="CVE-2026-30821",
+            name="Flowise Unauthenticated File Upload → RCE",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-30821: Flowise <3.0.13 — endpoint /api/v1/attachments ada di "
+                "WHITELIST_URLS (tanpa auth). Content-Type validation hanya cek client header, "
+                "tidak magic bytes — attacker upload PHP/JS script dengan Content-Type: application/pdf. "
+                "Chain dengan static hosting → stored RCE. Fix: upgrade >= 3.0.13."
+            ),
+            detected=detected,
+            endpoint=flowise_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_ghost(self, session, target_url, html) -> list:
+        """CVE-2026-29053 — Ghost CMS 0.7.2–6.19.0 malicious theme → RCE (CVSS 9.8)."""
+        detected = False
+        ghost_url = ""
+        evidence = ""
+
+        is_ghost = (
+            "ghost" in html.lower()
+            and any(k in html for k in ["ghost/api", "content/themes", "ghost-url"])
+        )
+
+        for path in ["ghost/api/v4/admin/site/", "ghost/api/content/posts/",
+                     "ghost/", "ghost/admin/"]:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, allow_redirects=True,
+                                       timeout=aiohttp.ClientTimeout(total=8),
+                                       headers=self._default_headers()) as r:
+                    if r.status in (200, 401, 403):
+                        text = await r.text(errors="replace")
+                        if "ghost" in text.lower() or r.headers.get("X-Ghost-Version"):
+                            ghost_version = r.headers.get("X-Ghost-Version", "unknown")
+                            ghost_url = url
+                            detected = True
+                            evidence = (
+                                f"CVE-2026-29053: Ghost CMS detected at {url} "
+                                f"(version: {ghost_version}). "
+                                f"Ghost 0.7.2–6.19.0 — malicious theme installs by admin → RCE. "
+                                f"Fix: upgrade Ghost >= 6.19.1."
+                            )
+                            break
+            except Exception:
+                pass
+            if detected:
+                break
+
+        if not detected and is_ghost:
+            detected = True
+            ghost_url = target_url
+            evidence = (
+                "CVE-2026-29053: Ghost CMS detected in page source. "
+                "Versions 0.7.2–6.19.0 vulnerable to admin theme RCE. Fix: upgrade >= 6.19.1."
+            )
+
+        return [self.make_result(
+            bug_id="CVE-2026-29053",
+            name="Ghost CMS Theme RCE",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-29053: Ghost CMS 0.7.2–6.19.0 — administrator yang menginstall "
+                "theme berbahaya dapat menjalankan arbitrary code di server. "
+                "Dalam skenario multi-tenant atau compromised admin account → full RCE. "
+                "Fix: upgrade Ghost >= 6.19.1."
+            ),
+            detected=detected,
+            endpoint=ghost_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_dataease(self, session, target_url, html) -> list:
+        """CVE-2026-32140 — Dataease <2.10.20 JDBC IniFile RCE (CVSS 9.3, 2026-03-12)."""
+        detected = False
+        dataease_url = ""
+        evidence = ""
+
+        is_dataease = "dataease" in html.lower() or "DataEase" in html
+
+        for path in ["dataease", "de2api/sys/check", "api/sys/check",
+                     "guestUser/tokenByParam", "sysParameter/values/all"]:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, allow_redirects=True,
+                                       timeout=aiohttp.ClientTimeout(total=6),
+                                       headers=self._default_headers()) as r:
+                    if r.status in (200, 401, 403):
+                        text = await r.text(errors="replace")
+                        if any(k in text for k in ["DataEase", "dataease", "DE2", "data-ease"]):
+                            dataease_url = url
+                            detected = True
+                            evidence = (
+                                f"CVE-2026-32140: DataEase instance detected at {url}. "
+                                f"DataEase <2.10.20 — IniFile parameter in Redshift JDBC URL "
+                                f"loads attacker-controlled config → injects JDBC properties → RCE. "
+                                f"Fix: upgrade DataEase >= 2.10.20."
+                            )
+                            break
+            except Exception:
+                pass
+            if detected:
+                break
+
+        if not detected and is_dataease:
+            detected = True
+            dataease_url = target_url
+            evidence = (
+                "CVE-2026-32140: DataEase detected in page source. "
+                "Versions <2.10.20 vulnerable to JDBC IniFile RCE."
+            )
+
+        return [self.make_result(
+            bug_id="CVE-2026-32140",
+            name="DataEase JDBC IniFile RCE",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-32140 (2026-03-12): DataEase <2.10.20 — parameter IniFile dalam "
+                "Redshift JDBC URL memungkinkan attacker load file konfigurasi yang dikontrol "
+                "attacker, menginjeksikan JDBC properties berbahaya → Remote Code Execution. "
+                "Fix: upgrade DataEase >= 2.10.20."
+            ),
+            detected=detected,
+            endpoint=dataease_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_ajenti(self, session, target_url) -> list:
+        """CVE-2026-27975 — Ajenti <2.2.13 unauthenticated RCE (CVSS 9.8)."""
+        detected = False
+        ajenti_url = ""
+        evidence = ""
+
+        for path in ["api/core/check-login", "api/core/config",
+                     "view/login_modal.html", "api/"]:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, allow_redirects=True,
+                                       timeout=aiohttp.ClientTimeout(total=6),
+                                       headers=self._default_headers()) as r:
+                    if r.status in (200, 401):
+                        text = await r.text(errors="replace")
+                        if any(k in text for k in ["ajenti", "Ajenti", "AjentiPlugin"]):
+                            ajenti_url = url
+                            detected = True
+                            evidence = (
+                                f"CVE-2026-27975: Ajenti admin panel detected at {url}. "
+                                f"Ajenti <2.2.13 — unauthenticated user dapat mengakses server "
+                                f"dan execute arbitrary code. Fix: upgrade Ajenti >= 2.2.13."
+                            )
+                            break
+            except Exception:
+                pass
+            if detected:
+                break
+
+        return [self.make_result(
+            bug_id="CVE-2026-27975",
+            name="Ajenti Unauthenticated RCE",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-27975: Ajenti Linux/BSD server admin panel <2.2.13 — "
+                "unauthenticated attacker dapat langsung mengakses server dan execute "
+                "arbitrary code. Panel biasanya di port 8000. "
+                "Fix: upgrade Ajenti >= 2.2.13, batasi akses dengan firewall."
+            ),
+            detected=detected,
+            endpoint=ajenti_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_adguard_home(self, session, target_url) -> list:
+        """CVE-2026-32136 — AdGuard Home HTTP/2 h2c upgrade auth bypass (Critical, 2026-03-13)."""
+        detected = False
+        adguard_url = ""
+        evidence = ""
+
+        for path in ["control/status", "dns-query",
+                     "control/install/get_addresses", "control/stats"]:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                # First: normal probe
+                async with session.get(url, ssl=False,
+                                       timeout=aiohttp.ClientTimeout(total=6),
+                                       headers=self._default_headers()) as r:
+                    if r.status == 200:
+                        text = await r.text(errors="replace")
+                        if any(k in text for k in [
+                            "AdGuard", "adguard", "dns_queries",
+                            "protection_enabled", '"running"', "num_dns_queries"
+                        ]):
+                            adguard_url = url
+                            detected = True
+                            evidence = (
+                                f"CVE-2026-32136: AdGuard Home control API accessible at {url}. "
+                                f"HTTP/2 Cleartext (h2c) Upgrade auth bypass (2026-03-13). "
+                                f"Attacker dapat bypass autentikasi admin via h2c upgrade header. "
+                                f"Segera update AdGuard Home."
+                            )
+                            break
+            except Exception:
+                pass
+            if detected:
+                break
+
+        return [self.make_result(
+            bug_id="CVE-2026-32136",
+            name="AdGuard Home h2c Auth Bypass",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-32136 (2026-03-13, FRESH TODAY): AdGuard Home — HTTP/2 Cleartext "
+                "(h2c) Upgrade request membypass authentication layer. Attacker dapat akses "
+                "admin API (DNS settings, blocklists, access control) tanpa login. "
+                "Segera update ke versi terbaru AdGuard Home."
+            ),
+            detected=detected,
+            endpoint=adguard_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_craft_cms(self, session, target_url, html) -> list:
+        """CVE-2026-28697 — Craft CMS <4.17.0-beta.1 / <5.9.0-beta.1 Twig SSTI → RCE (CVSS 9.4)."""
+        detected = False
+        craft_url = ""
+        evidence = ""
+
+        is_craft = (
+            "craftcms" in html.lower()
+            or "craft-csrf-token" in html.lower()
+            or "/cpresources/" in html
+            or "CraftCMS" in html
+        )
+
+        for path in ["index.php?p=admin/login", "admin/login", "admin",
+                     "actions/app/health-check"]:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, allow_redirects=True,
+                                       timeout=aiohttp.ClientTimeout(total=8),
+                                       headers=self._default_headers()) as r:
+                    if r.status in (200, 302):
+                        text = await r.text(errors="replace")
+                        if any(k in text for k in [
+                            "CraftCMS", "Craft CMS", "craftcms",
+                            "craft-csrf-token", "cpresources", '"craft"'
+                        ]):
+                            craft_url = url
+                            craft_version = r.headers.get("X-Powered-By", "unknown")
+                            detected = True
+                            evidence = (
+                                f"CVE-2026-28697: Craft CMS detected at {url} ({craft_version}). "
+                                f"Craft <4.17.0-beta.1 / <5.9.0-beta.1 — authenticated admin "
+                                f"dapat inject Twig SSTI di Email Templates → write PHP shell → RCE. "
+                                f"Fix: upgrade ke 4.17.0-beta.1 / 5.9.0-beta.1+."
+                            )
+                            break
+            except Exception:
+                pass
+            if detected:
+                break
+
+        if not detected and is_craft:
+            detected = True
+            craft_url = target_url
+            evidence = (
+                "CVE-2026-28697: Craft CMS detected in page source. "
+                "Versions <4.17.0-beta.1 / <5.9.0-beta.1 — Twig SSTI in Email Templates → RCE."
+            )
+
+        return [self.make_result(
+            bug_id="CVE-2026-28697",
+            name="Craft CMS Twig SSTI → RCE",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-28697: Craft CMS <4.17.0-beta.1 / <5.9.0-beta.1 — admin yang "
+                "inject SSTI payload ke Twig template field (Email Templates) dapat memanggil "
+                "craft.app.fs.write() untuk menulis PHP shell ke web-accessible directory → RCE. "
+                "Fix: upgrade Craft CMS ke 4.17.0-beta.1+ / 5.9.0-beta.1+."
+            ),
+            detected=detected,
+            endpoint=craft_url if detected else "",
+            evidence=evidence,
+        )]
+
+    async def _check_oneuptime(self, session, target_url) -> list:
+        """CVE-2026-30957 — OneUptime <10.0.21 Synthetic Monitor RCE (CVSS 9.9)."""
+        detected = False
+        oneuptime_url = ""
+        evidence = ""
+
+        for path in ["status-page", "api/status-page", "dashboard",
+                     "api/probe", "api/project"]:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, allow_redirects=True,
+                                       timeout=aiohttp.ClientTimeout(total=6),
+                                       headers=self._default_headers()) as r:
+                    if r.status == 200:
+                        text = await r.text(errors="replace")
+                        if any(k in text for k in [
+                            "OneUptime", "oneuptime", "one-uptime",
+                            "StatusPage", "synthetic-monitor"
+                        ]):
+                            oneuptime_url = url
+                            detected = True
+                            evidence = (
+                                f"CVE-2026-30957: OneUptime instance detected at {url}. "
+                                f"OneUptime <10.0.21 (CVSS 9.9) — low-privileged authenticated "
+                                f"project user dapat execute arbitrary commands pada probe server "
+                                f"via Synthetic Monitor (Playwright objects exposed in vm context). "
+                                f"Fix: upgrade OneUptime >= 10.0.21."
+                            )
+                            break
+            except Exception:
+                pass
+            if detected:
+                break
+
+        return [self.make_result(
+            bug_id="CVE-2026-30957",
+            name="OneUptime Synthetic Monitor RCE",
+            severity=Severity.CRITICAL,
+            category="CVE / Known Exploits",
+            description=(
+                "CVE-2026-30957: OneUptime <10.0.21 (CVSS 9.9) — Synthetic Monitor code "
+                "dijalankan dalam Node.js vm() namun live Playwright browser objects "
+                "di-inject ke dalam sandbox. User bisa panggil Playwright API untuk spawn "
+                "attacker-controlled executable → server-side RCE. Fix: upgrade >= 10.0.21."
+            ),
+            detected=detected,
+            endpoint=oneuptime_url if detected else "",
             evidence=evidence,
         )]
