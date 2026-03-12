@@ -33,6 +33,7 @@ from .modules.supply_chain_scanner import SupplyChainScanner
 from .modules.encoding_bypass_scanner import EncodingBypassScanner
 from .modules.logging_scanner import LoggingScanner
 from .modules.misc_scanner import MiscScanner
+from .modules.path_discovery_scanner import PathDiscoveryScanner
 
 
 class ScannerEngine:
@@ -67,6 +68,7 @@ class ScannerEngine:
             EncodingBypassScanner(),
             LoggingScanner(),
             MiscScanner(),
+            PathDiscoveryScanner(),
         ]
 
     async def scan(self, target_url: str, progress_callback: Optional[Callable] = None) -> ScanProgress:

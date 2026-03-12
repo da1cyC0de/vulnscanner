@@ -98,9 +98,10 @@ export default function ResultsTable({ results, onSelectVuln, scanning }) {
                 <div className="text-sm text-gray-400 mt-1 line-clamp-2">
                   {vuln.description}
                 </div>
-                {vuln.url && (
-                  <div className="text-xs text-gray-600 mt-1 font-mono truncate">
-                    {vuln.url}
+                {(vuln.endpoint || vuln.url) && (
+                  <div className="text-xs mt-1.5 font-mono truncate flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 bg-red-900/30 border border-red-800/50 rounded text-red-400 text-[10px] font-semibold">PATH</span>
+                    <span className="text-red-300/80">{vuln.endpoint || vuln.url}</span>
                   </div>
                 )}
               </div>

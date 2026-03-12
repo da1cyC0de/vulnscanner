@@ -345,6 +345,18 @@ const MODULES = [
     ],
   },
   {
+    name: 'PathDiscoveryScanner',
+    category: 'Path Discovery',
+    icon: '🗺️',
+    checks: [
+      { id: 'PATH-*', name: 'Hidden Path / Directory Bruteforce', severity: 'Varies', desc: 'Brute-force 100+ common paths: admin panels, .git, .env, backup files, API docs, debug endpoints, config files, upload dirs, and more. Each found path is reported individually.', desc_id: 'Brute-force 100+ path umum: admin panel, .git, .env, file backup, API docs, debug endpoint, config file, upload dir, dll. Setiap path yang ditemukan dilaporkan secara individual.' },
+      { id: 'PATH-001~018', name: 'Critical: VCS & Config Files', severity: 'Critical', desc: 'Detects exposed .git, .svn, .hg repos, .env files, Docker configs, wp-config.php, settings.py', desc_id: 'Mendeteksi repo .git, .svn, .hg, file .env, Docker config, wp-config.php, settings.py yang terekspos' },
+      { id: 'PATH-019~055', name: 'High: Admin, Debug & Backup', severity: 'High', desc: 'Finds admin panels, phpMyAdmin, debug pages, backup archives, SQL dumps, server-status, Spring Actuator', desc_id: 'Menemukan admin panel, phpMyAdmin, debug page, backup archive, SQL dump, server-status, Spring Actuator' },
+      { id: 'PATH-056~085', name: 'Medium: API Docs & Directories', severity: 'Medium', desc: 'Discovers Swagger/GraphQL endpoints, upload/media/log directories, CMS paths, dev files', desc_id: 'Menemukan Swagger/GraphQL endpoint, direktori upload/media/log, CMS path, file development' },
+      { id: 'PATH-086~094', name: 'Low/Info: Metadata Files', severity: 'Low', desc: 'Finds humans.txt, security.txt, license, README, manifest.json', desc_id: 'Menemukan humans.txt, security.txt, lisensi, README, manifest.json' },
+    ],
+  },
+  {
     name: 'MiscScanner',
     category: 'Miscellaneous',
     icon: '🔧',

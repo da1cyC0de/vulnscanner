@@ -133,6 +133,16 @@ export default function FixModal({ vuln, onClose }) {
             <p className="text-gray-300">{vuln.description}</p>
           </Section>
 
+          {/* Vulnerable Path / Endpoint */}
+          {vuln.endpoint && (
+            <Section title="Vulnerable Path">
+              <div className="flex items-center gap-2 bg-red-950/30 border border-red-900/50 rounded-lg p-3">
+                <span className="px-2 py-0.5 bg-red-900/50 border border-red-800 rounded text-red-400 text-xs font-bold">PATH</span>
+                <code className="text-red-300 text-sm font-mono break-all">{vuln.endpoint}</code>
+              </div>
+            </Section>
+          )}
+
           {/* Evidence */}
           {vuln.evidence && (
             <Section title="Evidence">
