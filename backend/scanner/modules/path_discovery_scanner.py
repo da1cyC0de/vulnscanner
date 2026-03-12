@@ -129,9 +129,39 @@ class PathDiscoveryScanner(BaseModule):
         "manifest.json": ("Manifest Exposed", "info", "Web app manifest ditemukan"),
     }
 
+    # Paths that only apply to WordPress sites
+    WP_SPECIFIC_PATHS = {
+        "wp-config.php", "wp-admin", "wp-login.php",
+        "wp-content", "wp-includes", "wp-json/wp/v2/users",
+    }
+
+    async def _detect_wordpress(self, session: aiohttp.ClientSession, target_url: str) -> bool:
+        """Return True only if the site shows clear WordPress fingerprints."""
+        try:
+            async with session.get(
+                target_url, ssl=False, allow_redirects=True,
+                timeout=aiohttp.ClientTimeout(total=10),
+                headers=self._default_headers(),
+            ) as resp:
+                if resp.status == 200:
+                    text = await resp.text(errors="replace")
+                    text_lower = text.lower()
+                    return (
+                        "/wp-content/" in text_lower
+                        or "/wp-includes/" in text_lower
+                        or 'content="wordpress' in text_lower
+                        or "wordpress" in resp.headers.get("X-Powered-By", "").lower()
+                    )
+        except Exception:
+            pass
+        return False
+
     async def scan(self, target_url: str, session: aiohttp.ClientSession) -> list[VulnerabilityResult]:
         results = []
         discovered = []
+
+        # Check WordPress before building path list — skip WP-specific paths on non-WP sites
+        is_wordpress = await self._detect_wordpress(session, target_url)
 
         # Scan all path categories concurrently in batches
         all_paths = {}
@@ -139,6 +169,9 @@ class PathDiscoveryScanner(BaseModule):
         all_paths.update(self.HIGH_PATHS)
         all_paths.update(self.MEDIUM_PATHS)
         all_paths.update(self.LOW_PATHS)
+
+        if not is_wordpress:
+            all_paths = {k: v for k, v in all_paths.items() if k not in self.WP_SPECIFIC_PATHS}
 
         # Batch concurrent requests (max 15 at a time to avoid overwhelming target)
         path_items = list(all_paths.items())
@@ -220,8 +253,11 @@ class PathDiscoveryScanner(BaseModule):
                             "content_hint": content_hint,
                             "index": idx,
                         }
-                # 403 = exists but forbidden (still interesting)
+                # 403 = exists but forbidden — downgrade severity since it's actively blocked
                 elif status == 403:
+                    # CRITICAL→MEDIUM, HIGH→LOW, others unchanged (blocked = not directly exploitable)
+                    sev_403_map = {"critical": "medium", "high": "low"}
+                    sev_403 = sev_403_map.get(severity, severity)
                     all_paths_list = list(self.CRITICAL_PATHS.keys()) + list(self.HIGH_PATHS.keys()) + \
                                      list(self.MEDIUM_PATHS.keys()) + list(self.LOW_PATHS.keys())
                     idx = all_paths_list.index(path) + 1 if path in all_paths_list else 999
@@ -231,7 +267,7 @@ class PathDiscoveryScanner(BaseModule):
                         "url": url,
                         "status": status,
                         "name": f"{name} (Forbidden)",
-                        "severity": "low" if severity in ("info", "low") else severity,
+                        "severity": sev_403,
                         "desc": f"{desc} — path ada tapi diblokir (403 Forbidden)",
                         "content_hint": "403 Forbidden — path exists but access denied",
                         "index": idx,
