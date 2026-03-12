@@ -15,12 +15,18 @@ export default function ResultsTable({ results, onSelectVuln, scanning }) {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
+  const [catFilter, setCatFilter] = useState('all');
+
   const filtered = results
     .filter((r) => {
       if (filter !== 'all' && (r.severity || '').toLowerCase() !== filter) return false;
+      if (catFilter === 'cve' && !(r.category || '').toLowerCase().includes('cve')) return false;
+      if (catFilter === 'other' && (r.category || '').toLowerCase().includes('cve')) return false;
       const name = (r.title || r.name || '').toLowerCase();
       const desc = (r.description || '').toLowerCase();
-      if (search && !name.includes(search.toLowerCase()) && !desc.includes(search.toLowerCase())) return false;
+      const bugId = (r.bug_id || '').toLowerCase();
+      const cat = (r.category || '').toLowerCase();
+      if (search && !name.includes(search.toLowerCase()) && !desc.includes(search.toLowerCase()) && !bugId.includes(search.toLowerCase()) && !cat.includes(search.toLowerCase())) return false;
       return true;
     })
     .sort((a, b) => {
@@ -53,10 +59,20 @@ export default function ResultsTable({ results, onSelectVuln, scanning }) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
-            className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-48"
+            placeholder="Search name, CVE-ID, category..."
+            className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-52"
           />
-          {/* Filter */}
+          {/* Category Filter */}
+          <select
+            value={catFilter}
+            onChange={(e) => setCatFilter(e.target.value)}
+            className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+          >
+            <option value="all">All Categories</option>
+            <option value="cve">CVE / Known Exploits</option>
+            <option value="other">Other Checks</option>
+          </select>
+          {/* Severity Filter */}
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -94,7 +110,14 @@ export default function ResultsTable({ results, onSelectVuln, scanning }) {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="text-white font-medium">{vuln.title || vuln.name}</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-white font-medium">{vuln.title || vuln.name}</span>
+                  {vuln.bug_id && vuln.bug_id.startsWith('CVE-') && (
+                    <span className="px-1.5 py-0.5 bg-purple-900/40 border border-purple-700/60 rounded text-[10px] font-mono font-semibold text-purple-300 whitespace-nowrap">
+                      {vuln.bug_id}
+                    </span>
+                  )}
+                </div>
                 <div className="text-sm text-gray-400 mt-1 line-clamp-2">
                   {vuln.description}
                 </div>

@@ -133,7 +133,7 @@ function ScanAllContent() {
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
             <div className="text-center mb-8">
               <h2 className="text-4xl font-bold text-white mb-3">Scan All Vulnerabilities</h2>
-              <p className="text-gray-400 text-lg">Enter a single URL — runs all 29 scanner modules</p>
+              <p className="text-gray-400 text-lg">Enter a single URL — runs all 31 scanner modules</p>
             </div>
             <form onSubmit={handleSubmit} className="w-full max-w-2xl">
               <div className="flex gap-3">
@@ -156,8 +156,8 @@ function ScanAllContent() {
               </div>
             </form>
             <div className="mt-12 grid grid-cols-4 gap-8 text-center text-gray-400">
-              <div><div className="text-3xl font-bold text-blue-400">180+</div><div className="text-sm mt-1">Vulnerability Checks</div></div>
-              <div><div className="text-3xl font-bold text-green-400">29</div><div className="text-sm mt-1">Scanner Modules</div></div>
+              <div><div className="text-3xl font-bold text-blue-400">200+</div><div className="text-sm mt-1">Vulnerability Checks</div></div>
+              <div><div className="text-3xl font-bold text-green-400">31</div><div className="text-sm mt-1">Scanner Modules</div></div>
               <div><div className="text-3xl font-bold text-purple-400">Export</div><div className="text-sm mt-1">HTML/JSON/CSV/MD</div></div>
               <div><div className="text-3xl font-bold text-orange-400">AI</div><div className="text-sm mt-1">Fix Guides</div></div>
             </div>

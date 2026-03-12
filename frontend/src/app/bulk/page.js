@@ -258,7 +258,7 @@ export default function BulkScanPage() {
 
                 {selectedModules.length === 0 && (
                   <p className="text-xs text-yellow-500/70 mt-2">
-                    ⚠ Belum ada module dipilih — akan menjalankan semua 29 module
+                    ⚠ Belum ada module dipilih — akan menjalankan semua 31 module
                   </p>
                 )}
               </div>

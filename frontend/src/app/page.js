@@ -83,8 +83,8 @@ export default function Home() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-6 mb-16">
           {[
-            { value: '180+', label: 'Vulnerability Checks', color: 'text-blue-400' },
-            { value: '29', label: 'Scanner Modules', color: 'text-green-400' },
+            { value: '200+', label: 'Vulnerability Checks', color: 'text-blue-400' },
+            { value: '31', label: 'Scanner Modules', color: 'text-green-400' },
             { value: '4', label: 'Export Formats', color: 'text-purple-400' },
             { value: 'AI', label: 'Fix Guides', color: 'text-orange-400' },
           ].map((s, i) => (

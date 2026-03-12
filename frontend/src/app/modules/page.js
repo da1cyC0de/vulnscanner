@@ -370,6 +370,33 @@ const MODULES = [
       { id: 'MISC-181', name: 'Insecure Form Action', severity: 'Medium', desc: 'Detects forms that submit data to insecure HTTP endpoints from HTTPS pages', desc_id: 'Mendeteksi form yang submit data ke endpoint HTTP (bukan HTTPS)' },
     ],
   },
+  {
+    name: 'CveScanner',
+    category: 'CVE / Known Exploits',
+    icon: '🧨',
+    checks: [
+      { id: 'CVE-2025-29927', name: 'Next.js Middleware Auth Bypass', severity: 'Critical', desc: 'Next.js <14.2.25/<15.2.3 — auth middleware bypass via x-middleware-subrequest header', desc_id: 'Next.js <14.2.25/<15.2.3 — bypass middleware autentikasi via header x-middleware-subrequest' },
+      { id: 'CVE-2024-4577', name: 'PHP CGI Argument Injection (RCE)', severity: 'Critical', desc: 'PHP CGI mode on Windows (XAMPP/IIS) — /?-s returns PHP source code. Unauthenticated RCE', desc_id: 'Mode CGI PHP di Windows — /?-s mengembalikan source PHP. RCE unauthenticated' },
+      { id: 'CVE-2025-24813', name: 'Apache Tomcat Partial PUT RCE', severity: 'Critical', desc: 'Tomcat <9.0.99/<10.1.35/<11.0.3 — partial PUT with Content-Range enables session deserialization RCE', desc_id: 'Tomcat <9.0.99 — partial PUT dengan Content-Range memungkinkan RCE via deserialisasi session' },
+      { id: 'CVE-2024-23897', name: 'Jenkins CLI Arbitrary File Read', severity: 'Critical', desc: 'Jenkins <2.442 LTS — CLI args-as-files allows unauthenticated arbitrary file read. May lead to RCE', desc_id: 'Jenkins <2.442 LTS — CLI memungkinkan pembacaan file arbitrary tanpa autentikasi, bisa RCE' },
+      { id: 'CVE-2021-44228', name: 'Log4Shell JNDI Injection', severity: 'Critical', desc: 'Log4j2 <2.15.0 — ${jndi:ldap://...} in HTTP headers triggers JNDI lookup → RCE (CVSS 10.0)', desc_id: 'Log4j2 <2.15.0 — ${jndi:ldap://...} di header HTTP memicu JNDI lookup → RCE (CVSS 10.0)' },
+      { id: 'CVE-2022-22965', name: 'Spring4Shell RCE via DataBinder', severity: 'Critical', desc: 'Spring Framework <5.3.18 on Tomcat WAR — class.module.classLoader parameter injection → RCE', desc_id: 'Spring Framework <5.3.18 di Tomcat WAR — injeksi parameter class.module.classLoader → RCE' },
+      { id: 'CVE-2025-68613', name: 'n8n Workflow Expression RCE', severity: 'Critical', desc: 'n8n 0.211.0–<1.120.4 — expression evaluation in workflow not isolated. Auth RCE. CISA KEV (CVSS 9.9)', desc_id: 'n8n — evaluasi expression dalam workflow tidak terisolasi. RCE authenticated. CISA KEV (CVSS 9.9)' },
+      { id: 'CVE-2025-68929', name: 'Frappe Framework SSTI RCE', severity: 'Critical', desc: 'Frappe <14.99.6/<15.88.1 — SSTI via crafted URL in Jinja template execution → RCE (CVSS 9.0)', desc_id: 'Frappe — SSTI via URL yang dibuat dalam eksekusi template Jinja → RCE (CVSS 9.0)' },
+      { id: 'CVE-2026-32251', name: 'Tolgee XXE / SSRF via XML Import', severity: 'Critical', desc: 'Tolgee <3.166.3 — XML parsers for Android/resx import have XXE enabled. Auth file read + SSRF', desc_id: 'Tolgee <3.166.3 — parser XML untuk import tidak menonaktifkan XXE. Baca file + SSRF' },
+      { id: 'CVE-2026-32248', name: 'Parse Server Account Takeover', severity: 'Critical', desc: 'Parse Server <9.6.0-alpha.12/<8.6.38 — anonymous auth NoSQL injection allows account takeover (CVSS 9.3)', desc_id: 'Parse Server — injeksi NoSQL via anonymous auth memungkinkan overambil alih akun (CVSS 9.3)' },
+      { id: 'CVE-2026-27971', name: 'Qwik server$ RPC Unsafe Deserialization', severity: 'Critical', desc: 'Qwik <=1.19.0 — unsafe deserialization in server$ RPC. Single HTTP request → unauthenticated RCE. EPSS 13.43%', desc_id: 'Qwik <=1.19.0 — deserialisasi tidak aman di server$ RPC. Satu request HTTP → RCE unauthenticated. EPSS 13.43%' },
+      { id: 'CVE-2026-30821', name: 'Flowise Unauthenticated File Upload RCE', severity: 'Critical', desc: 'Flowise <3.0.13 — /api/v1/attachments whitelisted, MIME spoofing bypass → upload PHP/JS → RCE (CVSS 9.8)', desc_id: 'Flowise <3.0.13 — endpoint upload tanpa auth, bypass MIME type → upload PHP → RCE (CVSS 9.8)' },
+      { id: 'CVE-2026-29053', name: 'Ghost CMS Theme RCE', severity: 'Critical', desc: 'Ghost 0.7.2–6.19.0 — admin installing malicious Handlebars theme executes arbitrary server-side code (CVSS 9.8)', desc_id: 'Ghost 0.7.2–6.19.0 — admin yang install theme berbahaya mengeksekusi kode arbitrary di server (CVSS 9.8)' },
+      { id: 'CVE-2026-32140', name: 'DataEase JDBC IniFile RCE', severity: 'Critical', desc: 'DataEase <2.10.20 — IniFile parameter in Redshift JDBC URL loads attacker config → RCE (CVSS 9.3, 2026-03-12)', desc_id: 'DataEase <2.10.20 — parameter IniFile di JDBC URL memuat config attacker → RCE (CVSS 9.3, 2026-03-12)' },
+      { id: 'CVE-2026-27975', name: 'Ajenti Unauthenticated RCE', severity: 'Critical', desc: 'Ajenti <2.2.13 — unauthenticated user can access server admin panel and execute arbitrary code (CVSS 9.8)', desc_id: 'Ajenti <2.2.13 — user tanpa autentikasi bisa akses panel admin server dan eksekusi kode (CVSS 9.8)' },
+      { id: 'CVE-2026-32136', name: 'AdGuard Home h2c Auth Bypass', severity: 'Critical', desc: 'AdGuard Home — HTTP/2 cleartext (h2c) upgrade bypasses authentication. Admin API accessible without login. (2026-03-13)', desc_id: 'AdGuard Home — upgrade HTTP/2 cleartext (h2c) membypass autentikasi. API admin bisa diakses tanpa login. (2026-03-13)' },
+      { id: 'CVE-2026-28697', name: 'Craft CMS Twig SSTI RCE', severity: 'Critical', desc: 'Craft CMS <4.17.0-beta.1/<5.9.0-beta.1 — admin Twig SSTI in Email Templates → write PHP shell → RCE (CVSS 9.4)', desc_id: 'Craft CMS — SSTI Twig di Email Templates → tulis PHP shell → RCE (CVSS 9.4)' },
+      { id: 'CVE-2026-30957', name: 'OneUptime Synthetic Monitor RCE', severity: 'Critical', desc: 'OneUptime <10.0.21 — Playwright objects injected into vm sandbox allow probe server RCE (CVSS 9.9)', desc_id: 'OneUptime <10.0.21 — objek Playwright di-inject ke sandbox vm memungkinkan RCE di server probe (CVSS 9.9)' },
+      { id: 'CVE-2026-32142', name: 'Shopware Config/License Disclosure', severity: 'Medium', desc: 'Shopware /api/_info/config exposes license and version info without authentication (CVSS 5.3)', desc_id: 'Shopware /api/_info/config mengekspos info lisensi dan versi tanpa autentikasi (CVSS 5.3)' },
+      { id: 'CVE-2026-32230', name: 'Uptime Kuma Private Monitor Exposure', severity: 'Medium', desc: 'Uptime Kuma 2.0.0–2.1.3 — /api/badge/:id/ping skips public group check, exposes private monitor data (CVSS 5.3)', desc_id: 'Uptime Kuma — endpoint badge tidak verifikasi monitor public, ekspos data monitor private (CVSS 5.3)' },
+    ],
+  },
 ];
 
 const UI_TEXT = {
