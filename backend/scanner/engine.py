@@ -36,6 +36,7 @@ from .modules.encoding_bypass_scanner import EncodingBypassScanner
 from .modules.logging_scanner import LoggingScanner
 from .modules.misc_scanner import MiscScanner
 from .modules.path_discovery_scanner import PathDiscoveryScanner
+from .modules.cve_scanner import CveScanner
 
 
 class ScannerEngine:
@@ -93,6 +94,7 @@ class ScannerEngine:
             LoggingScanner(),
             MiscScanner(),
             PathDiscoveryScanner(),
+            CveScanner(),
         ]
         # Pre-filter page-level modules for quick lookup
         self.page_modules = [m for m in self.modules if m.__class__.__name__ in self.PAGE_MODULE_NAMES]
