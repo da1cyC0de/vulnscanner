@@ -14,7 +14,15 @@ if _env_file.exists():
             os.environ.setdefault(key.strip(), value.strip())
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.5-flash"
+
+# Model fallback chain — ordered by quality then availability.
+# If primary hits 429 rate limit, automatically tries next model.
+GEMINI_MODELS = [
+    "gemini-2.5-flash",          # primary: 20 RPM, 250K TPM
+    "gemini-3.1-flash-lite",     # 500 RPD, 15 RPM, 250K TPM
+    "gemini-3-flash",            # 5 RPM, 250K TPM
+    "gemini-2.5-flash-lite",     # 10 RPM, 250K TPM
+]
 
 
 def _extract_json(text: str) -> dict:
@@ -48,7 +56,11 @@ def _extract_json(text: str) -> dict:
 
 
 async def generate_fix_guide(vuln_data: dict) -> dict:
-    """Generate AI-powered fix guide using Google Gemini (free tier)."""
+    """Generate AI-powered fix guide using Google Gemini (free tier).
+
+    Automatically rotates through GEMINI_MODELS on 429 rate limit errors
+    so scans don't fail when one model's quota is exhausted.
+    """
 
     if not GEMINI_API_KEY:
         return {
@@ -84,71 +96,83 @@ PENTING:
 - Sesuaikan fix dengan evidence yang ditemukan
 - Jangan generic, harus spesifik ke vulnerability ini"""
 
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    last_error = "Semua model AI sedang tidak tersedia. Coba lagi nanti."
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(
-                api_url,
-                headers={"Content-Type": "application/json"},
-                json={
-                    "contents": [
-                        {
-                            "parts": [{"text": prompt}]
-                        }
-                    ],
-                    "generationConfig": {
-                        "temperature": 0.3,
-                        "maxOutputTokens": 8192,
-                        "responseMimeType": "application/json"
-                    }
-                },
-                timeout=aiohttp.ClientTimeout(total=60),
-            ) as resp:
-                if resp.status != 200:
-                    err_body = await resp.text()
-                    if "leaked" in err_body.lower():
-                        msg = "API key sudah expired/leaked. Buat key baru di https://aistudio.google.com/apikey lalu update .env file."
-                    elif resp.status == 403:
-                        msg = "API key tidak valid atau expired. Cek GEMINI_API_KEY di file .env"
-                    elif resp.status == 429:
-                        msg = "Rate limit tercapai. Tunggu beberapa menit lalu coba lagi."
-                    else:
-                        msg = f"AI service error (status {resp.status}). Coba lagi nanti."
-                    return {
-                        "ai_generated": False,
-                        "error": msg
-                    }
+            for model in GEMINI_MODELS:
+                api_url = (
+                    f"https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model}:generateContent?key={GEMINI_API_KEY}"
+                )
+                try:
+                    async with session.post(
+                        api_url,
+                        headers={"Content-Type": "application/json"},
+                        json={
+                            "contents": [
+                                {
+                                    "parts": [{"text": prompt}]
+                                }
+                            ],
+                            "generationConfig": {
+                                "temperature": 0.3,
+                                "maxOutputTokens": 8192,
+                                "responseMimeType": "application/json"
+                            }
+                        },
+                        timeout=aiohttp.ClientTimeout(total=60),
+                    ) as resp:
+                        if resp.status == 429:
+                            # Rate limited — try next model
+                            last_error = f"Rate limit tercapai di semua model ({', '.join(GEMINI_MODELS)}). Coba lagi dalam beberapa menit."
+                            continue
 
-                data = await resp.json()
-                # gemini-2.5-flash may return thinking in separate parts
-                # find the part that contains actual JSON content
-                parts = data["candidates"][0]["content"]["parts"]
-                content = ""
-                for part in parts:
-                    text = part.get("text", "")
-                    if text and ("{" in text):
-                        content = text.strip()
-                        break
-                if not content:
-                    content = parts[-1].get("text", "").strip()
+                        if resp.status == 403:
+                            err_body = await resp.text()
+                            if "leaked" in err_body.lower():
+                                return {
+                                    "ai_generated": False,
+                                    "error": "API key sudah expired/leaked. Buat key baru di https://aistudio.google.com/apikey lalu update .env file."
+                                }
+                            return {
+                                "ai_generated": False,
+                                "error": "API key tidak valid atau expired. Cek GEMINI_API_KEY di file .env"
+                            }
 
-                result = _extract_json(content)
-                result["ai_generated"] = True
-                return result
+                        if resp.status != 200:
+                            last_error = f"AI service error (status {resp.status}) pada model {model}."
+                            continue
 
-    except json.JSONDecodeError:
-        return {
-            "ai_generated": False,
-            "error": "AI response tidak valid JSON, coba lagi"
-        }
+                        data = await resp.json()
+                        parts = data["candidates"][0]["content"]["parts"]
+                        content = ""
+                        for part in parts:
+                            text = part.get("text", "")
+                            if text and "{" in text:
+                                content = text.strip()
+                                break
+                        if not content:
+                            content = parts[-1].get("text", "").strip()
+
+                        result = _extract_json(content)
+                        result["ai_generated"] = True
+                        result["model_used"] = model
+                        return result
+
+                except json.JSONDecodeError:
+                    last_error = f"Respons dari {model} bukan JSON valid, mencoba model berikutnya."
+                    continue
+
     except aiohttp.ClientError:
         return {
             "ai_generated": False,
-            "error": "Gagal connect ke AI service. Coba lagi nanti."
+            "error": "Gagal connect ke AI service. Cek koneksi internet."
         }
     except Exception:
         return {
             "ai_generated": False,
             "error": "Terjadi error saat memproses AI. Coba lagi."
         }
+
+    return {"ai_generated": False, "error": last_error}
