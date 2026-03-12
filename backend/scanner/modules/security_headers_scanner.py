@@ -52,6 +52,7 @@ class SecurityHeadersScanner(BaseModule):
                 category="Security Headers",
                 description=description,
                 detected=missing or weak,
+                endpoint=target_url,
                 evidence=evidence if evidence else (f"Header '{header_name}' not found in response" if missing else ""),
             ))
 

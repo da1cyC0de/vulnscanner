@@ -16,19 +16,19 @@ class AuthSessionScanner(BaseModule):
         if not html or not resp:
             return results
 
-        results.extend(self._check_cookie_flags(resp))
+        results.extend(self._check_cookie_flags(resp, target_url))
         results.extend(self._check_session_in_url(target_url, html))
         results.extend(await self._check_login_form(session, target_url, html))
-        results.extend(self._check_jwt(resp, html))
-        results.extend(self._check_session_storage(html))
-        results.extend(self._check_session_id_entropy(resp))
-        results.extend(self._check_account_lockout(html))
-        results.extend(self._check_password_policy(html))
-        results.extend(self._check_autocomplete_password(html))
+        results.extend(self._check_jwt(resp, html, target_url))
+        results.extend(self._check_session_storage(html, target_url))
+        results.extend(self._check_session_id_entropy(resp, target_url))
+        results.extend(self._check_account_lockout(html, target_url))
+        results.extend(self._check_password_policy(html, target_url))
+        results.extend(self._check_autocomplete_password(html, target_url))
 
         return results
 
-    def _check_cookie_flags(self, resp) -> list:
+    def _check_cookie_flags(self, resp, target_url) -> list:
         detected = False
         evidence_parts = []
 
@@ -49,7 +49,7 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-012", name="Cookie Security Flags Missing", severity=Severity.MEDIUM,
             category="Authentication & Session",
             description="Cek apakah cookies memiliki flag HttpOnly, Secure, dan SameSite.",
-            detected=detected, evidence="\n".join(evidence_parts),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts),
         )]
 
     def _check_session_in_url(self, url, html) -> list:
@@ -76,7 +76,7 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-051", name="Session Hijacking - Session ID in URL", severity=Severity.HIGH,
             category="Authentication & Session",
             description="Cek apakah session ID terekspos di URL.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url, evidence=evidence,
         )]
 
     async def _check_login_form(self, session, target_url, html) -> list:
@@ -95,6 +95,7 @@ class AuthSessionScanner(BaseModule):
             category="Authentication & Session",
             description="Deteksi form login yang mungkin rentan brute force (tidak ada rate limiting/captcha).",
             detected=has_login and not self._has_captcha(html),
+            endpoint=target_url,
             evidence="Login form found without visible CAPTCHA protection" if has_login else "",
         ))
 
@@ -136,6 +137,7 @@ class AuthSessionScanner(BaseModule):
                 category="Authentication & Session",
                 description="Tes apakah bisa login dengan default credentials.",
                 detected=cred_detected,
+                endpoint=action if cred_detected else "",
                 evidence=f"Login berhasil dengan credentials default" if cred_detected else "",
             ))
 
@@ -146,7 +148,7 @@ class AuthSessionScanner(BaseModule):
         html_lower = html.lower()
         return any(c in html_lower for c in captcha_indicators)
 
-    def _check_jwt(self, resp, html) -> list:
+    def _check_jwt(self, resp, html, target_url) -> list:
         detected = False
         evidence = ""
         jwt_pattern = r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'
@@ -175,10 +177,10 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-012J", name="JWT Vulnerability Check", severity=Severity.HIGH,
             category="Authentication & Session",
             description="Cek JWT token untuk vulnerability (none algorithm, exposed tokens).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_session_storage(self, html) -> list:
+    def _check_session_storage(self, html, target_url) -> list:
         detected = False
         evidence = ""
         patterns = [
@@ -196,10 +198,10 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-056", name="Insecure Session Storage", severity=Severity.MEDIUM,
             category="Authentication & Session",
             description="Cek apakah token/session disimpan di localStorage/sessionStorage.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_session_id_entropy(self, resp) -> list:
+    def _check_session_id_entropy(self, resp, target_url) -> list:
         detected = False
         evidence = ""
         cookies = resp.headers.getall("Set-Cookie", [])
@@ -217,10 +219,10 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-054", name="Session ID Entropy Check", severity=Severity.MEDIUM,
             category="Authentication & Session",
             description="Cek apakah session ID cukup panjang dan random.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_account_lockout(self, html) -> list:
+    def _check_account_lockout(self, html, target_url) -> list:
         detected = False
         evidence = ""
         if html:
@@ -237,10 +239,10 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-055", name="Account Lockout Missing", severity=Severity.MEDIUM,
             category="Authentication & Session",
             description="Deteksi form login tanpa mekanisme account lockout.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_password_policy(self, html) -> list:
+    def _check_password_policy(self, html, target_url) -> list:
         detected = False
         evidence = ""
         if html:
@@ -261,10 +263,10 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-057", name="Weak Password Policy", severity=Severity.MEDIUM,
             category="Authentication & Session",
             description="Cek apakah form password memiliki validasi kekuatan password.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_autocomplete_password(self, html) -> list:
+    def _check_autocomplete_password(self, html, target_url) -> list:
         detected = False
         evidence = ""
         if html:
@@ -280,5 +282,5 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-058", name="Password Autocomplete Enabled", severity=Severity.LOW,
             category="Authentication & Session",
             description="Cek apakah password field mengizinkan browser autocomplete.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]

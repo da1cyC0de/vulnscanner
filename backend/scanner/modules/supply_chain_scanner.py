@@ -21,11 +21,11 @@ class SupplyChainScanner(BaseModule):
         if not html:
             return results
 
-        results.extend(self._check_js_libraries(html))
-        results.extend(self._check_outdated_frameworks(html))
+        results.extend(self._check_js_libraries(html, target_url))
+        results.extend(self._check_outdated_frameworks(html, target_url))
         return results
 
-    def _check_js_libraries(self, html) -> list:
+    def _check_js_libraries(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
 
@@ -45,10 +45,10 @@ class SupplyChainScanner(BaseModule):
             bug_id="SUPPLY-161", name="JavaScript Library Vulnerability", severity=Severity.MEDIUM,
             category="Supply Chain",
             description="Deteksi library JavaScript yang outdated dan memiliki vulnerability.",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:10]),
         )]
 
-    def _check_outdated_frameworks(self, html) -> list:
+    def _check_outdated_frameworks(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         extra = {
@@ -73,7 +73,7 @@ class SupplyChainScanner(BaseModule):
             bug_id="SUPPLY-162", name="Outdated Frontend Framework", severity=Severity.MEDIUM,
             category="Supply Chain",
             description="Deteksi framework frontend yang outdated (React, Vue, Axios, dll).",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:10]),
         )]
 
     def _version_lt(self, v1: str, v2: str) -> bool:

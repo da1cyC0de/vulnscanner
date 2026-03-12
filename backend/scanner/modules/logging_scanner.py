@@ -42,7 +42,7 @@ class LoggingScanner(BaseModule):
             bug_id="LOG-170", name="Log File Exposure", severity=Severity.HIGH,
             category="Logging & Monitoring",
             description="Cek file log yang terekspos dan bisa diakses publik.",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:10]),
         )]
 
     async def _check_security_txt(self, session, target_url) -> list:
@@ -70,5 +70,5 @@ class LoggingScanner(BaseModule):
             bug_id="LOG-171", name="Missing security.txt", severity=Severity.INFO,
             category="Logging & Monitoring",
             description="Cek apakah security.txt tersedia sesuai RFC 9116.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

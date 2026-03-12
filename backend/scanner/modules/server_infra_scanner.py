@@ -39,7 +39,7 @@ class ServerInfraScanner(BaseModule):
             bug_id="SRV-071", name="Web Server Status Page Exposed", severity=Severity.MEDIUM,
             category="Server & Infrastructure",
             description="Cek halaman status web server (Apache/Nginx status) yang terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_phpinfo(self, session, target_url) -> list:
@@ -64,7 +64,7 @@ class ServerInfraScanner(BaseModule):
             bug_id="SRV-072", name="PHP Info Page Exposure", severity=Severity.HIGH,
             category="Server & Infrastructure",
             description="Cek halaman phpinfo() yang terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_graphql(self, session, target_url) -> list:
@@ -94,7 +94,7 @@ class ServerInfraScanner(BaseModule):
             bug_id="SRV-074", name="GraphQL Introspection Enabled", severity=Severity.MEDIUM,
             category="Server & Infrastructure",
             description="Cek apakah GraphQL introspection query aktif.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_cors_wildcard(self, session, target_url) -> list:
@@ -117,7 +117,7 @@ class ServerInfraScanner(BaseModule):
             bug_id="SRV-075", name="CORS Origin Reflection with Credentials", severity=Severity.HIGH,
             category="Server & Infrastructure",
             description="Cek apakah server me-reflect origin attacker + allow credentials.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_default_pages(self, session, target_url) -> list:
@@ -144,5 +144,5 @@ class ServerInfraScanner(BaseModule):
             bug_id="SRV-076", name="Default Web Server Page", severity=Severity.LOW,
             category="Server & Infrastructure",
             description="Deteksi halaman default web server (Apache, Nginx, IIS, Tomcat).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]

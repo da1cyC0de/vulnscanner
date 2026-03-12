@@ -38,7 +38,7 @@ class ProtocolScanner(BaseModule):
             bug_id="PROTO-121", name="HTTP Method Override", severity=Severity.MEDIUM,
             category="HTTP Protocol",
             description="Cek apakah server menerima HTTP method override headers.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_http_smuggling(self, session, target_url) -> list:
@@ -63,7 +63,7 @@ class ProtocolScanner(BaseModule):
             bug_id="PROTO-120", name="HTTP Request Smuggling", severity=Severity.HIGH,
             category="HTTP Protocol",
             description="Cek potensi HTTP Request Smuggling (TE/CL conflict).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_trace_method(self, session, target_url) -> list:
@@ -84,5 +84,5 @@ class ProtocolScanner(BaseModule):
             bug_id="PROTO-122", name="TRACE Method Enabled (XST)", severity=Severity.MEDIUM,
             category="HTTP Protocol",
             description="Cek apakah TRACE method aktif (Cross-Site Tracing risk).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

@@ -47,5 +47,6 @@ class CsrfScanner(BaseModule):
             category="CSRF",
             description="Cek apakah form POST memiliki CSRF token.",
             detected=detected and not samesite_ok,
+            endpoint=target_url,
             evidence="\n".join(evidence_parts[:10]),
         )]

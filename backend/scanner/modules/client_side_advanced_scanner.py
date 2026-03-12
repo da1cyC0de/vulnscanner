@@ -13,14 +13,14 @@ class ClientSideAdvancedScanner(BaseModule):
         if not html:
             return results
 
-        results.extend(self._check_postmessage(html))
-        results.extend(self._check_tabnabbing(html))
-        results.extend(self._check_sri(html))
-        results.extend(self._check_css_injection(html))
+        results.extend(self._check_postmessage(html, target_url))
+        results.extend(self._check_tabnabbing(html, target_url))
+        results.extend(self._check_sri(html, target_url))
+        results.extend(self._check_css_injection(html, target_url))
         results.extend(self._check_mixed_content(html, target_url))
         return results
 
-    def _check_postmessage(self, html) -> list:
+    def _check_postmessage(self, html, target_url) -> list:
         detected = False
         evidence = ""
         if "postMessage" in html and "addEventListener" in html:
@@ -32,10 +32,10 @@ class ClientSideAdvancedScanner(BaseModule):
             bug_id="CLIADV-123", name="PostMessage Vulnerability", severity=Severity.MEDIUM,
             category="Client-Side Advanced",
             description="Cek penggunaan postMessage tanpa validasi origin.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
-    def _check_tabnabbing(self, html) -> list:
+    def _check_tabnabbing(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         soup = self.parse_html(html)
@@ -52,10 +52,10 @@ class ClientSideAdvancedScanner(BaseModule):
             bug_id="CLIADV-126", name="Reverse Tabnabbing", severity=Severity.LOW,
             category="Client-Side Advanced",
             description="Deteksi link target='_blank' tanpa rel='noopener noreferrer'.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_sri(self, html) -> list:
+    def _check_sri(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         soup = self.parse_html(html)
@@ -70,10 +70,10 @@ class ClientSideAdvancedScanner(BaseModule):
             bug_id="COMP-106", name="Subresource Integrity (SRI) Missing", severity=Severity.LOW,
             category="Client-Side Advanced",
             description="Cek external resources yang tidak memiliki SRI attribute.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_css_injection(self, html) -> list:
+    def _check_css_injection(self, html, target_url) -> list:
         detected = False
         evidence = ""
         patterns = [
@@ -93,7 +93,7 @@ class ClientSideAdvancedScanner(BaseModule):
             bug_id="CLIADV-124", name="CSS Injection", severity=Severity.MEDIUM,
             category="Client-Side Advanced",
             description="Deteksi pola CSS injection (expression, moz-binding).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     def _check_mixed_content(self, html, target_url) -> list:
@@ -112,5 +112,5 @@ class ClientSideAdvancedScanner(BaseModule):
             bug_id="CLIADV-125", name="Mixed Content (Active)", severity=Severity.MEDIUM,
             category="Client-Side Advanced",
             description="Deteksi active mixed content (HTTP resource di HTTPS page).",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:5]),
         )]

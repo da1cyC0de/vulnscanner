@@ -14,9 +14,9 @@ class MiscScanner(BaseModule):
 
         results.extend(await self._check_crossdomain(session, target_url))
         results.extend(await self._check_sitemap(session, target_url))
-        results.extend(self._check_jsonp(html))
-        results.extend(self._check_cache_headers(resp))
-        results.extend(self._check_internal_ip_disclosure(html))
+        results.extend(self._check_jsonp(html, target_url))
+        results.extend(self._check_cache_headers(resp, target_url))
+        results.extend(self._check_internal_ip_disclosure(html, target_url))
         results.extend(await self._check_clientaccesspolicy(session, target_url))
         results.extend(self._check_sensitive_form_action(html, target_url))
         return results
@@ -39,7 +39,7 @@ class MiscScanner(BaseModule):
             bug_id="MISC-175", name="Crossdomain.xml Misconfiguration", severity=Severity.MEDIUM,
             category="Miscellaneous",
             description="Cek crossdomain.xml yang terlalu permissive.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_sitemap(self, session, target_url) -> list:
@@ -62,10 +62,10 @@ class MiscScanner(BaseModule):
             bug_id="MISC-176", name="Sitemap Sensitive URL Leakage", severity=Severity.LOW,
             category="Miscellaneous",
             description="Analisis sitemap.xml untuk path sensitif.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
-    def _check_jsonp(self, html) -> list:
+    def _check_jsonp(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -79,10 +79,10 @@ class MiscScanner(BaseModule):
             bug_id="MISC-174", name="JSONP Callback Injection", severity=Severity.MEDIUM,
             category="Miscellaneous",
             description="Deteksi JSONP callback yang bisa disalahgunakan.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
-    def _check_cache_headers(self, resp) -> list:
+    def _check_cache_headers(self, resp, target_url) -> list:
         if not resp:
             return []
         detected = False
@@ -101,10 +101,10 @@ class MiscScanner(BaseModule):
             bug_id="MISC-108", name="Cache Control Headers Check", severity=Severity.LOW,
             category="Miscellaneous",
             description="Cek apakah Cache-Control header mencegah caching data sensitif.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
-    def _check_internal_ip_disclosure(self, html) -> list:
+    def _check_internal_ip_disclosure(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -119,7 +119,7 @@ class MiscScanner(BaseModule):
             bug_id="MISC-179", name="Internal IP Address Disclosure", severity=Severity.LOW,
             category="Miscellaneous",
             description="Deteksi alamat IP internal yang bocor di halaman web.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_clientaccesspolicy(self, session, target_url) -> list:
@@ -140,7 +140,7 @@ class MiscScanner(BaseModule):
             bug_id="MISC-180", name="ClientAccessPolicy.xml Misconfiguration", severity=Severity.MEDIUM,
             category="Miscellaneous",
             description="Cek clientaccesspolicy.xml yang terlalu permissive.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     def _check_sensitive_form_action(self, html, target_url) -> list:
@@ -160,5 +160,5 @@ class MiscScanner(BaseModule):
             bug_id="MISC-181", name="Insecure Form Action", severity=Severity.MEDIUM,
             category="Miscellaneous",
             description="Deteksi form yang submit data ke endpoint HTTP (bukan HTTPS).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

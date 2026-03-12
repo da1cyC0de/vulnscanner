@@ -36,21 +36,21 @@ class InfoDisclosureScanner(BaseModule):
         if not resp:
             return results
 
-        results.extend(self._check_server_headers(resp))
+        results.extend(self._check_server_headers(resp, target_url))
         results.extend(await self._check_sensitive_files(session, target_url))
         results.extend(await self._check_directory_listing(session, target_url))
-        results.extend(self._check_error_disclosure(html))
+        results.extend(self._check_error_disclosure(html, target_url))
         results.extend(await self._check_admin_panels(session, target_url))
         results.extend(await self._check_backup_files(session, target_url))
         results.extend(await self._check_robots_txt(session, target_url))
-        results.extend(self._check_debug_mode(html, resp))
-        results.extend(self._check_html_comments(html))
-        results.extend(self._check_stack_trace_leak(html))
+        results.extend(self._check_debug_mode(html, resp, target_url))
+        results.extend(self._check_html_comments(html, target_url))
+        results.extend(self._check_stack_trace_leak(html, target_url))
         results.extend(await self._check_sitemap_xml(session, target_url))
 
         return results
 
-    def _check_server_headers(self, resp) -> list:
+    def _check_server_headers(self, resp, target_url) -> list:
         detected = False
         evidence_parts = []
         leak_headers = ["Server", "X-Powered-By", "X-AspNet-Version",
@@ -65,7 +65,7 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-026", name="Server Version Disclosure", severity=Severity.LOW,
             category="Information Disclosure",
             description="Deteksi kebocoran versi server dari HTTP headers.",
-            detected=detected, evidence="\n".join(evidence_parts),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts),
         )]
 
     async def _check_sensitive_files(self, session, target_url) -> list:
@@ -89,7 +89,7 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-027", name="Sensitive File Exposure", severity=Severity.HIGH,
             category="Information Disclosure",
             description="Cek file sensitif yang terbuka (.env, .git, config, dll).",
-            detected=detected, evidence="\n".join(evidence_parts[:15]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:15]),
         )]
 
     async def _check_directory_listing(self, session, target_url) -> list:
@@ -114,10 +114,10 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-028", name="Directory Listing", severity=Severity.MEDIUM,
             category="Information Disclosure",
             description="Cek apakah directory listing aktif di web server.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
-    def _check_error_disclosure(self, html) -> list:
+    def _check_error_disclosure(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -141,7 +141,7 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-029", name="Error Message Information Leak", severity=Severity.MEDIUM,
             category="Information Disclosure",
             description="Deteksi pesan error yang membocorkan info teknis (stack trace, path, DB error).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_admin_panels(self, session, target_url) -> list:
@@ -166,7 +166,7 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-030", name="Admin Panel Finder", severity=Severity.MEDIUM,
             category="Information Disclosure",
             description="Cek endpoint admin panel yang bisa diakses.",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:10]),
         )]
 
     async def _check_backup_files(self, session, target_url) -> list:
@@ -198,7 +198,7 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-031", name="Backup File Finder", severity=Severity.HIGH,
             category="Information Disclosure",
             description="Cek file backup yang terekspos (zip, sql, tar.gz).",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1].split(' (')[0] if evidence_parts else "", evidence="\n".join(evidence_parts[:10]),
         )]
 
     async def _check_robots_txt(self, session, target_url) -> list:
@@ -221,10 +221,10 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-032", name="robots.txt & Sitemap Analysis", severity=Severity.INFO,
             category="Information Disclosure",
             description="Analisis robots.txt untuk path sensitif.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url, evidence=evidence,
         )]
 
-    def _check_debug_mode(self, html, resp) -> list:
+    def _check_debug_mode(self, html, resp, target_url) -> list:
         detected = False
         evidence = ""
         if html:
@@ -251,10 +251,10 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-073", name="Debug Mode Detection", severity=Severity.HIGH,
             category="Information Disclosure",
             description="Deteksi apakah debug mode aktif (Laravel, Django, Flask, dll).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_html_comments(self, html) -> list:
+    def _check_html_comments(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -276,10 +276,10 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-178", name="HTML Comment Sensitive Info Leakage", severity=Severity.LOW,
             category="Information Disclosure",
             description="Cek HTML comments yang mengandung informasi sensitif.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_stack_trace_leak(self, html) -> list:
+    def _check_stack_trace_leak(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -302,7 +302,7 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-033", name="Stack Trace Exposure", severity=Severity.MEDIUM,
             category="Information Disclosure",
             description="Deteksi stack trace yang terekspos di halaman web.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_sitemap_xml(self, session, target_url) -> list:
@@ -327,5 +327,5 @@ class InfoDisclosureScanner(BaseModule):
             bug_id="INFO-034", name="Sitemap.xml Sensitive Path Disclosure", severity=Severity.LOW,
             category="Information Disclosure",
             description="Analisis sitemap.xml untuk path sensitif yang terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url, evidence=evidence,
         )]

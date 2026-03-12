@@ -26,8 +26,8 @@ class DatabaseScanner(BaseModule):
 
         results.extend(await self._check_db_dumps(session, target_url))
         results.extend(await self._check_db_panels(session, target_url))
-        results.extend(self._check_db_connection_strings(html))
-        results.extend(self._check_db_errors(html))
+        results.extend(self._check_db_connection_strings(html, target_url))
+        results.extend(self._check_db_errors(html, target_url))
         results.extend(await self._check_redis_exposed(session, target_url))
         results.extend(await self._check_mongodb_exposed(session, target_url))
         results.extend(await self._check_elasticsearch_exposed(session, target_url))
@@ -55,7 +55,7 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-057", name="Database Dump Exposure", severity=Severity.CRITICAL,
             category="Database Exposure",
             description="Cek file database dump yang terekspos (.sql, .db, .sqlite).",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1].split(' (')[0] if evidence_parts else "", evidence="\n".join(evidence_parts[:10]),
         )]
 
     async def _check_db_panels(self, session, target_url) -> list:
@@ -79,10 +79,10 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-058", name="phpMyAdmin/Adminer Panel Exposed", severity=Severity.HIGH,
             category="Database Exposure",
             description="Cek panel database admin (phpMyAdmin, Adminer) yang terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_db_connection_strings(self, html) -> list:
+    def _check_db_connection_strings(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -104,10 +104,10 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-062", name="Database Connection String Leakage", severity=Severity.CRITICAL,
             category="Database Exposure",
             description="Deteksi connection string database yang bocor di source code.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_db_errors(self, html) -> list:
+    def _check_db_errors(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -134,7 +134,7 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-063", name="Database Error Message Leakage", severity=Severity.MEDIUM,
             category="Database Exposure",
             description="Deteksi pesan error database yang membocorkan informasi.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_redis_exposed(self, session, target_url) -> list:
@@ -162,7 +162,7 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-059", name="Redis Server Exposed", severity=Severity.CRITICAL,
             category="Database Exposure",
             description="Cek apakah Redis server terekspos tanpa autentikasi.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=f"{hostname}:6379" if detected else "", evidence=evidence,
         )]
 
     async def _check_mongodb_exposed(self, session, target_url) -> list:
@@ -186,7 +186,7 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-060", name="MongoDB Exposed", severity=Severity.CRITICAL,
             category="Database Exposure",
             description="Cek apakah MongoDB terekspos dan bisa diakses dari luar.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=f"{hostname}:27017" if detected else "", evidence=evidence,
         )]
 
     async def _check_elasticsearch_exposed(self, session, target_url) -> list:
@@ -210,5 +210,5 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-061", name="Elasticsearch Exposed", severity=Severity.HIGH,
             category="Database Exposure",
             description="Cek apakah Elasticsearch terekspos dan bisa diakses publik.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=es_url if detected else "", evidence=evidence,
         )]

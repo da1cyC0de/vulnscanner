@@ -32,7 +32,7 @@ class CacheProxyScanner(BaseModule):
             bug_id="CACHE-111", name="Web Cache Poisoning", severity=Severity.HIGH,
             category="Cache & Proxy",
             description="Tes Web Cache Poisoning via X-Forwarded-Host header.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_cache_deception(self, session, target_url) -> list:
@@ -57,7 +57,7 @@ class CacheProxyScanner(BaseModule):
             bug_id="CACHE-112", name="Web Cache Deception", severity=Severity.HIGH,
             category="Cache & Proxy",
             description="Tes Web Cache Deception Attack.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=test_url if detected else "", evidence=evidence,
         )]
 
     async def _check_proxy_misconfiguration(self, session, target_url) -> list:
@@ -82,5 +82,5 @@ class CacheProxyScanner(BaseModule):
             bug_id="CACHE-113", name="Reverse Proxy Bypass", severity=Severity.HIGH,
             category="Cache & Proxy",
             description="Cek bypass access control via X-Original-URL / X-Rewrite-URL headers.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

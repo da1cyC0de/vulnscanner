@@ -72,10 +72,16 @@ class AdvancedInjectionScanner(BaseModule):
             if detected:
                 break
 
+        endpoint = ""
+        if detected and evidence:
+            import re as _re
+            _m = _re.search(r'at\s+(https?://\S+)', evidence)
+            if _m:
+                endpoint = _m.group(1)
         return [self.make_result(
             bug_id="ADV-089", name="Server-Side Template Injection (SSTI)", severity=Severity.CRITICAL,
             category="Advanced Injection", description="Tes SSTI pada form inputs.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]
 
     async def _check_ssrf(self, session, target_url, forms) -> list:
@@ -107,10 +113,19 @@ class AdvancedInjectionScanner(BaseModule):
             if detected:
                 break
 
+        endpoint = ""
+        if detected:
+            for form in forms:
+                for inp in form["inputs"]:
+                    if any(p in inp["name"].lower() for p in ssrf_params):
+                        endpoint = form["action"]
+                        break
+                if endpoint:
+                    break
         return [self.make_result(
             bug_id="ADV-090", name="Server-Side Request Forgery (SSRF)", severity=Severity.HIGH,
             category="Advanced Injection", description="Tes SSRF pada parameter URL.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]
 
     async def _check_xxe(self, session, target_url) -> list:
@@ -135,7 +150,7 @@ class AdvancedInjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="ADV-091", name="XML External Entity (XXE)", severity=Severity.CRITICAL,
             category="Advanced Injection", description="Tes XXE Injection.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_crlf_injection(self, session, target_url) -> list:
@@ -162,5 +177,5 @@ class AdvancedInjectionScanner(BaseModule):
             bug_id="ADV-092", name="CRLF Injection", severity=Severity.HIGH,
             category="Advanced Injection",
             description="Tes CRLF Injection (HTTP Response Splitting).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=test_url if detected else "", evidence=evidence,
         )]

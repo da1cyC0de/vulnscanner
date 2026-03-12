@@ -13,11 +13,11 @@ class WebSocketScanner(BaseModule):
         if not html:
             return results
 
-        results.extend(self._check_websocket_usage(html))
-        results.extend(self._check_ws_origin_bypass(html))
+        results.extend(self._check_websocket_usage(html, target_url))
+        results.extend(self._check_ws_origin_bypass(html, target_url))
         return results
 
-    def _check_websocket_usage(self, html) -> list:
+    def _check_websocket_usage(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
 
@@ -40,10 +40,10 @@ class WebSocketScanner(BaseModule):
             bug_id="WS-117", name="WebSocket Security Check", severity=Severity.MEDIUM,
             category="WebSocket",
             description="Cek penggunaan WebSocket dan keamanannya (ws vs wss).",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_ws_origin_bypass(self, html) -> list:
+    def _check_ws_origin_bypass(self, html, target_url) -> list:
         detected = False
         evidence = ""
         if re.search(r'new\s+WebSocket', html):
@@ -55,5 +55,5 @@ class WebSocketScanner(BaseModule):
             bug_id="WS-118", name="WebSocket Origin Validation Missing", severity=Severity.MEDIUM,
             category="WebSocket",
             description="WebSocket tanpa validasi origin bisa rentan Cross-Site WebSocket Hijacking.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

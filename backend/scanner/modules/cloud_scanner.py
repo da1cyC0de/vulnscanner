@@ -37,7 +37,7 @@ class CloudScanner(BaseModule):
             bug_id="CLOUD-151", name="Cloud Metadata SSRF Risk", severity=Severity.HIGH,
             category="Cloud & Container",
             description="Deteksi referensi ke cloud metadata endpoint (AWS/GCP/Azure).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_firebase(self, session, target_url) -> list:
@@ -63,7 +63,7 @@ class CloudScanner(BaseModule):
             bug_id="CLOUD-153", name="Firebase Database Misconfiguration", severity=Severity.CRITICAL,
             category="Cloud & Container",
             description="Cek Firebase Realtime Database yang bisa diakses publik.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=fb_url if detected else "", evidence=evidence,
         )]
 
     async def _check_k8s_docker(self, session, target_url) -> list:
@@ -88,7 +88,7 @@ class CloudScanner(BaseModule):
             bug_id="CLOUD-149", name="Kubernetes/Docker Dashboard Exposed", severity=Severity.CRITICAL,
             category="Cloud & Container",
             description="Cek Kubernetes Dashboard atau Docker API yang terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_s3_bucket(self, session, target_url) -> list:
@@ -112,7 +112,7 @@ class CloudScanner(BaseModule):
             bug_id="CLOUD-150", name="AWS S3 Bucket Exposure", severity=Severity.HIGH,
             category="Cloud & Container",
             description="Deteksi referensi S3 bucket yang mungkin misconfigured.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_azure_blob(self, session, target_url) -> list:
@@ -130,7 +130,7 @@ class CloudScanner(BaseModule):
             bug_id="CLOUD-152", name="Azure Blob Storage Exposure", severity=Severity.HIGH,
             category="Cloud & Container",
             description="Deteksi referensi Azure Blob Storage yang mungkin terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_gcp_storage(self, session, target_url) -> list:
@@ -154,5 +154,5 @@ class CloudScanner(BaseModule):
             bug_id="CLOUD-154", name="GCP Storage Bucket Exposure", severity=Severity.HIGH,
             category="Cloud & Container",
             description="Deteksi referensi Google Cloud Storage yang mungkin terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

@@ -16,12 +16,12 @@ class ClientSideScanner(BaseModule):
             return results
 
         results.extend(await self._check_open_redirect(session, target_url, html))
-        results.extend(self._check_clickjacking(resp))
+        results.extend(self._check_clickjacking(resp, target_url))
         results.extend(await self._check_cors(session, target_url))
-        results.extend(self._check_dom_based(html))
+        results.extend(self._check_dom_based(html, target_url))
         results.extend(await self._check_source_maps(session, target_url, html))
-        results.extend(self._check_prototype_pollution(html))
-        results.extend(self._check_local_storage_sensitive(html))
+        results.extend(self._check_prototype_pollution(html, target_url))
+        results.extend(self._check_local_storage_sensitive(html, target_url))
 
         return results
 
@@ -49,10 +49,10 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-021", name="Open Redirect", severity=Severity.MEDIUM,
             category="Client-Side",
             description="Tes Open Redirect melalui URL parameters.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=test_url if detected else "", evidence=evidence,
         )]
 
-    def _check_clickjacking(self, resp) -> list:
+    def _check_clickjacking(self, resp, target_url) -> list:
         xfo = resp.headers.get("X-Frame-Options")
         csp = resp.headers.get("Content-Security-Policy", "")
         has_frame_ancestors = "frame-ancestors" in csp.lower()
@@ -66,7 +66,7 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-022", name="Clickjacking", severity=Severity.MEDIUM,
             category="Client-Side",
             description="Cek proteksi clickjacking (X-Frame-Options / CSP frame-ancestors).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_cors(self, session, target_url) -> list:
@@ -94,10 +94,10 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-023", name="CORS Misconfiguration", severity=Severity.HIGH,
             category="Client-Side",
             description="Cek CORS misconfiguration (wildcard, reflected origin).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_dom_based(self, html) -> list:
+    def _check_dom_based(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         dangerous_sinks = [
@@ -126,7 +126,7 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-024", name="DOM-based Vulnerability Hints", severity=Severity.MEDIUM,
             category="Client-Side",
             description="Deteksi penggunaan dangerous sinks dan sources di JavaScript.",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:10]),
         )]
 
     async def _check_source_maps(self, session, target_url, html) -> list:
@@ -149,10 +149,10 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-025", name="JavaScript Source Map Exposure", severity=Severity.LOW,
             category="Client-Side",
             description="Cek apakah JavaScript source map file (.js.map) terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split(': ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_prototype_pollution(self, html) -> list:
+    def _check_prototype_pollution(self, html, target_url) -> list:
         detected = False
         evidence = ""
         patterns = [
@@ -173,10 +173,10 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-026", name="Prototype Pollution Hints", severity=Severity.MEDIUM,
             category="Client-Side",
             description="Deteksi pola kode JavaScript yang rentan prototype pollution.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
-    def _check_local_storage_sensitive(self, html) -> list:
+    def _check_local_storage_sensitive(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         patterns = [
@@ -193,5 +193,5 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-027", name="Sensitive Data in Client Storage", severity=Severity.MEDIUM,
             category="Client-Side",
             description="Deteksi penyimpanan data sensitif (token, password) di localStorage/sessionStorage.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:5]),
         )]

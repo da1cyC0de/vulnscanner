@@ -19,7 +19,7 @@ class BusinessLogicScanner(BaseModule):
         results.extend(await self._check_parameter_tampering(session, target_url, html))
         results.extend(await self._check_negative_values(session, target_url, html))
         results.extend(await self._check_race_condition(session, target_url, html))
-        results.extend(self._check_idor_references(html))
+        results.extend(self._check_idor_references(html, target_url))
         results.extend(await self._check_privilege_escalation(session, target_url))
 
         return results
@@ -47,7 +47,7 @@ class BusinessLogicScanner(BaseModule):
             bug_id="BIZ-018", name="Hidden Field Manipulation", severity=Severity.HIGH,
             category="Business Logic",
             description="Deteksi hidden form fields sensitif (harga, role, discount) yang bisa diubah oleh attacker.",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:10]),
         )]
 
     async def _check_parameter_tampering(self, session, target_url, html) -> list:
@@ -90,7 +90,7 @@ class BusinessLogicScanner(BaseModule):
             bug_id="BIZ-017", name="Parameter Tampering / Price Manipulation", severity=Severity.CRITICAL,
             category="Business Logic",
             description="Tes apakah nilai harga/nominal bisa diubah dan diterima oleh backend.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=action if detected else "", evidence=evidence,
         )]
 
     async def _check_negative_values(self, session, target_url, html) -> list:
@@ -132,7 +132,7 @@ class BusinessLogicScanner(BaseModule):
             bug_id="BIZ-020", name="Negative Value Testing", severity=Severity.HIGH,
             category="Business Logic",
             description="Tes apakah backend menerima nilai negatif untuk quantity/price.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=action if detected else "", evidence=evidence,
         )]
 
     async def _check_race_condition(self, session, target_url, html) -> list:
@@ -145,10 +145,11 @@ class BusinessLogicScanner(BaseModule):
             category="Business Logic",
             description="Deteksi form POST yang mungkin rentan race condition (double submit).",
             detected=has_post_forms,
+            endpoint=target_url,
             evidence=f"Found {len(forms)} POST forms that may be vulnerable to race conditions" if has_post_forms else "",
         )]
 
-    def _check_idor_references(self, html) -> list:
+    def _check_idor_references(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         soup = self.parse_html(html)
@@ -162,7 +163,7 @@ class BusinessLogicScanner(BaseModule):
             bug_id="BIZ-021", name="IDOR Reference in Links", severity=Severity.MEDIUM,
             category="Business Logic",
             description="Deteksi link dengan parameter ID numerik yang mungkin rentan IDOR.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_privilege_escalation(self, session, target_url) -> list:
@@ -187,5 +188,5 @@ class BusinessLogicScanner(BaseModule):
             bug_id="BIZ-022", name="Privilege Escalation - Unprotected Admin", severity=Severity.HIGH,
             category="Business Logic",
             description="Cek apakah halaman admin/privileged bisa diakses tanpa autentikasi.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]

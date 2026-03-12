@@ -43,7 +43,7 @@ class ApiSecurityScanner(BaseModule):
             bug_id="API-046", name="API Endpoint Discovery", severity=Severity.INFO,
             category="API Security",
             description="Deteksi endpoint API yang bisa diakses.",
-            detected=detected, evidence="\n".join(evidence_parts[:10]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1].split(' (')[0] if evidence_parts else "", evidence="\n".join(evidence_parts[:10]),
         )]
 
     async def _check_http_methods(self, session, target_url) -> list:
@@ -78,7 +78,7 @@ class ApiSecurityScanner(BaseModule):
             bug_id="API-047", name="HTTP Method Tampering", severity=Severity.MEDIUM,
             category="API Security",
             description="Cek apakah HTTP methods berbahaya (PUT, DELETE, TRACE) diizinkan.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_rate_limiting(self, session, target_url) -> list:
@@ -104,7 +104,7 @@ class ApiSecurityScanner(BaseModule):
             bug_id="API-048", name="Rate Limiting Check", severity=Severity.MEDIUM,
             category="API Security",
             description="Cek apakah ada rate limiting untuk mencegah brute force.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_swagger_exposure(self, session, target_url) -> list:
@@ -131,7 +131,7 @@ class ApiSecurityScanner(BaseModule):
             bug_id="API-134", name="Swagger/OpenAPI Docs Exposed", severity=Severity.MEDIUM,
             category="API Security",
             description="Cek apakah dokumentasi API (Swagger/OpenAPI) terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_api_version_disclosure(self, session, target_url) -> list:
@@ -154,5 +154,5 @@ class ApiSecurityScanner(BaseModule):
             bug_id="API-049", name="API Version Information Disclosure", severity=Severity.LOW,
             category="API Security",
             description="Cek apakah API version endpoint mengekspos informasi.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('at: ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]

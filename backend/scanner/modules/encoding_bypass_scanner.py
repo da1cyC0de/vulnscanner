@@ -47,7 +47,7 @@ class EncodingBypassScanner(BaseModule):
             bug_id="ENC-165", name="WAF Detection & Fingerprinting", severity=Severity.INFO,
             category="Encoding & Bypass",
             description="Deteksi dan identifikasi Web Application Firewall (WAF).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_hpp(self, session, target_url) -> list:
@@ -67,7 +67,7 @@ class EncodingBypassScanner(BaseModule):
             bug_id="ENC-169", name="HTTP Parameter Pollution (HPP)", severity=Severity.LOW,
             category="Encoding & Bypass",
             description="Cek apakah server rentan terhadap HTTP Parameter Pollution.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=test_url if detected else "", evidence=evidence,
         )]
 
     async def _check_double_encoding(self, session, target_url) -> list:
@@ -89,7 +89,7 @@ class EncodingBypassScanner(BaseModule):
             bug_id="ENC-166", name="Double Encoding Bypass", severity=Severity.MEDIUM,
             category="Encoding & Bypass",
             description="Cek apakah server rentan terhadap double encoding bypass.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=test_url if detected else "", evidence=evidence,
         )]
 
     async def _check_null_byte(self, session, target_url) -> list:
@@ -109,5 +109,5 @@ class EncodingBypassScanner(BaseModule):
             bug_id="ENC-167", name="Null Byte Injection", severity=Severity.MEDIUM,
             category="Encoding & Bypass",
             description="Tes apakah server rentan terhadap null byte injection.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=test_url if detected else "", evidence=evidence,
         )]

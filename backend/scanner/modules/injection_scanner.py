@@ -319,6 +319,7 @@ class InjectionScanner(BaseModule):
     async def _scan_crlf_injection(self, session, target_url) -> list:
         detected = False
         evidence = ""
+        endpoint = ""
 
         for payload in self.CRLF_PAYLOADS:
             try:
@@ -328,6 +329,7 @@ class InjectionScanner(BaseModule):
                     if "crlf=injection" in headers_str or "injected-header" in headers_str:
                         detected = True
                         evidence = f"CRLF payload reflected in headers: {payload}"
+                        endpoint = test_url
                         break
             except Exception:
                 pass
@@ -335,7 +337,7 @@ class InjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="INJ-007", name="CRLF Injection", severity=Severity.MEDIUM,
             category="Injection", description="Tes CRLF Injection pada HTTP headers.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]
 
     async def _scan_host_header_injection(self, session, target_url) -> list:
@@ -360,7 +362,7 @@ class InjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="INJ-008", name="Host Header Injection", severity=Severity.MEDIUM,
             category="Injection", description="Tes Host Header Injection.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _scan_nosql_injection(self, session, target_url, forms) -> list:
@@ -398,6 +400,7 @@ class InjectionScanner(BaseModule):
     async def _scan_ldap_injection(self, session, target_url, forms) -> list:
         detected = False
         evidence = ""
+        endpoint = ""
         ldap_payloads = ["*", ")(cn=*)", "*(|(objectclass=*))", "*)(&", "*)(uid=*))(|(uid=*"]
         ldap_errors = ["ldap", "invalid dn", "bad search filter", "dsid", "ldaperr"]
 
@@ -416,6 +419,7 @@ class InjectionScanner(BaseModule):
                             if err in text:
                                 detected = True
                                 evidence = f"LDAP error detected with payload: {payload}"
+                                endpoint = form["action"]
                                 break
                     except Exception:
                         pass
@@ -429,12 +433,13 @@ class InjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="INJ-006", name="LDAP Injection", severity=Severity.HIGH,
             category="Injection", description="Tes LDAP Injection pada form inputs.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]
 
     async def _scan_xpath_injection(self, session, target_url, forms) -> list:
         detected = False
         evidence = ""
+        endpoint = ""
         xpath_errors = ["xpath", "xmlsyntaxerror", "invalid predicate", "unterminated", "xpatherror"]
 
         for form in forms:
@@ -457,6 +462,7 @@ class InjectionScanner(BaseModule):
                             if err in text:
                                 detected = True
                                 evidence = f"XPath error detected with payload: {payload}"
+                                endpoint = form["action"]
                                 break
                     except Exception:
                         pass
@@ -470,12 +476,13 @@ class InjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="INJ-010", name="XPath Injection", severity=Severity.HIGH,
             category="Injection", description="Tes XPath Injection pada form inputs.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]
 
     async def _scan_el_injection(self, session, target_url, forms) -> list:
         detected = False
         evidence = ""
+        endpoint = ""
 
         for form in forms:
             for inp in form["inputs"]:
@@ -496,10 +503,12 @@ class InjectionScanner(BaseModule):
                         if "49" in text and "${7*7}" in payload:
                             detected = True
                             evidence = f"Expression Language evaluated: {payload} → 49"
+                            endpoint = form["action"]
                             break
                         if "49" in text and "#{7*7}" in payload:
                             detected = True
                             evidence = f"Expression Language evaluated: {payload} → 49"
+                            endpoint = form["action"]
                             break
                     except Exception:
                         pass
@@ -513,5 +522,5 @@ class InjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="INJ-011", name="Expression Language Injection", severity=Severity.CRITICAL,
             category="Injection", description="Tes Expression Language (EL) Injection pada form inputs.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]

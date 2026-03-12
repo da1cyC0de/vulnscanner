@@ -50,7 +50,7 @@ class SslTlsScanner(BaseModule):
             bug_id="SSL-040", name="SSL Certificate Check", severity=Severity.HIGH,
             category="SSL/TLS & Network",
             description="Cek SSL certificate (expired, self-signed, invalid).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=f"https://{hostname}", evidence=evidence,
         )]
 
     async def _check_https_redirect(self, session, target_url) -> list:
@@ -80,7 +80,7 @@ class SslTlsScanner(BaseModule):
             bug_id="SSL-043", name="HTTP/HTTPS Redirect Check", severity=Severity.MEDIUM,
             category="SSL/TLS & Network",
             description="Cek apakah HTTP redirect ke HTTPS.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=http_url, evidence=evidence,
         )]
 
     async def _check_mixed_content(self, session, target_url) -> list:
@@ -101,7 +101,7 @@ class SslTlsScanner(BaseModule):
             bug_id="SSL-042", name="Mixed Content Detection", severity=Severity.MEDIUM,
             category="SSL/TLS & Network",
             description="Deteksi resource HTTP yang dimuat dari halaman HTTPS.",
-            detected=detected, evidence="\n".join(evidence_parts),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts),
         )]
 
     async def _check_hsts_preload(self, session, target_url) -> list:
@@ -121,7 +121,7 @@ class SslTlsScanner(BaseModule):
             bug_id="SSL-105", name="HSTS Preload Check", severity=Severity.LOW,
             category="SSL/TLS & Network",
             description="Cek apakah HSTS preload directive aktif.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_tls_version(self, hostname) -> list:
@@ -149,7 +149,7 @@ class SslTlsScanner(BaseModule):
             bug_id="SSL-041", name="Weak TLS Version Supported", severity=Severity.HIGH,
             category="SSL/TLS & Network",
             description="Cek apakah server masih mendukung TLS versi lama (TLSv1.0/1.1).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=f"https://{hostname}", evidence=evidence,
         )]
 
     async def _check_cert_transparency(self, session, target_url) -> list:
@@ -166,5 +166,5 @@ class SslTlsScanner(BaseModule):
             bug_id="SSL-044", name="Certificate Transparency Check", severity=Severity.LOW,
             category="SSL/TLS & Network",
             description="Cek apakah Certificate Transparency (Expect-CT) diaktifkan.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]

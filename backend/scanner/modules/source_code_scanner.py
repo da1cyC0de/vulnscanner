@@ -16,13 +16,13 @@ class SourceCodeScanner(BaseModule):
         results.extend(await self._check_git_exposure(session, target_url))
         results.extend(await self._check_svn_exposure(session, target_url))
         results.extend(await self._check_env_file(session, target_url))
-        results.extend(self._check_api_keys_in_js(html))
-        results.extend(self._check_hardcoded_creds(html))
+        results.extend(self._check_api_keys_in_js(html, target_url))
+        results.extend(self._check_hardcoded_creds(html, target_url))
         results.extend(await self._check_private_keys(session, target_url))
         results.extend(await self._check_package_files(session, target_url))
         results.extend(await self._check_docker_exposure(session, target_url))
         results.extend(await self._check_cicd_config(session, target_url))
-        results.extend(self._check_aws_credentials(html))
+        results.extend(self._check_aws_credentials(html, target_url))
 
         return results
 
@@ -44,7 +44,7 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-075", name="Git Repository Exposure", severity=Severity.CRITICAL,
             category="Source Code & Secrets",
             description="Cek apakah folder .git terekspos dan bisa diakses.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_svn_exposure(self, session, target_url) -> list:
@@ -65,7 +65,7 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-076", name="SVN Repository Exposure", severity=Severity.HIGH,
             category="Source Code & Secrets",
             description="Cek apakah folder .svn terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_env_file(self, session, target_url) -> list:
@@ -86,10 +86,10 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-082", name=".env File Exposure", severity=Severity.CRITICAL,
             category="Source Code & Secrets",
             description="Cek apakah file .env terekspos dan berisi konfigurasi sensitif.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
-    def _check_api_keys_in_js(self, html) -> list:
+    def _check_api_keys_in_js(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -111,10 +111,10 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-078", name="API Key Leakage in JavaScript", severity=Severity.HIGH,
             category="Source Code & Secrets",
             description="Deteksi API key yang terekspos di HTML/JavaScript source.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_hardcoded_creds(self, html) -> list:
+    def _check_hardcoded_creds(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -134,7 +134,7 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-079", name="Hardcoded Credentials in Source", severity=Severity.HIGH,
             category="Source Code & Secrets",
             description="Deteksi password/credentials yang hardcoded di source code.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]
 
     async def _check_private_keys(self, session, target_url) -> list:
@@ -158,7 +158,7 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-081", name="Private Key File Exposure", severity=Severity.CRITICAL,
             category="Source Code & Secrets",
             description="Cek file private key (.pem, .key) yang terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('at: ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_package_files(self, session, target_url) -> list:
@@ -184,7 +184,7 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-162", name="Package/Dependency File Exposure", severity=Severity.LOW,
             category="Source Code & Secrets",
             description="Deteksi file dependency (package.json, composer.json, dll) yang terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_docker_exposure(self, session, target_url) -> list:
@@ -208,7 +208,7 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-077", name="Docker Configuration Exposed", severity=Severity.HIGH,
             category="Source Code & Secrets",
             description="Cek apakah file Dockerfile/docker-compose terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_cicd_config(self, session, target_url) -> list:
@@ -234,10 +234,10 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-080", name="CI/CD Configuration Exposed", severity=Severity.HIGH,
             category="Source Code & Secrets",
             description="Cek file konfigurasi CI/CD yang terekspos (GitHub Actions, GitLab CI, dll).",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_aws_credentials(self, html) -> list:
+    def _check_aws_credentials(self, html, target_url) -> list:
         if not html:
             return []
         detected = False
@@ -258,5 +258,5 @@ class SourceCodeScanner(BaseModule):
             bug_id="SRC-083", name="AWS Credentials Exposed", severity=Severity.CRITICAL,
             category="Source Code & Secrets",
             description="Deteksi AWS access key/secret yang terekspos di source code.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url, evidence=evidence,
         )]

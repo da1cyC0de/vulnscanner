@@ -91,11 +91,22 @@ class FilePathScanner(BaseModule):
                     except Exception:
                         pass
 
+        endpoint = ""
+        if detected:
+            for form in forms:
+                for inp in form["inputs"]:
+                    if any(p in inp["name"].lower() for p in file_params):
+                        endpoint = form["action"]
+                        break
+                if endpoint:
+                    break
+            if not endpoint:
+                endpoint = target_url
         return [self.make_result(
             bug_id="FILE-139", name="Path Traversal / Local File Inclusion (LFI)", severity=Severity.CRITICAL,
             category="File & Path",
             description="Tes Local File Inclusion / Path Traversal.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]
 
     async def _check_rfi(self, session, target_url, forms) -> list:
@@ -125,10 +136,18 @@ class FilePathScanner(BaseModule):
                         pass
             if detected:
                 break
-
+        endpoint = ""
+        if detected:
+            for form in forms:
+                for inp in form["inputs"]:
+                    if any(p in inp["name"].lower() for p in file_params):
+                        endpoint = form["action"]
+                        break
+                if endpoint:
+                    break
         return [self.make_result(
             bug_id="FILE-140", name="Remote File Inclusion (RFI)", severity=Severity.CRITICAL,
             category="File & Path",
             description="Tes Remote File Inclusion.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=endpoint, evidence=evidence,
         )]

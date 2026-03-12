@@ -41,13 +41,14 @@ class FileUploadScanner(BaseModule):
                 bug_id="FILE-044", name="Unrestricted File Upload", severity=Severity.HIGH,
                 category="File Upload",
                 description="Deteksi form file upload yang tidak ada pembatasan tipe file.",
-                detected=detected, evidence="\n".join(evidence_parts[:5]),
+                detected=detected, endpoint=target_url, evidence="\n".join(evidence_parts[:5]),
             ),
             self.make_result(
                 bug_id="FILE-045", name="File Extension Bypass Check", severity=Severity.HIGH,
                 category="File Upload",
                 description="Deteksi kemungkinan bypass ekstensi pada file upload.",
                 detected=detected,
+                endpoint=target_url,
                 evidence="Upload forms found that may accept dangerous file types" if detected else "",
             ),
         ]
@@ -73,5 +74,5 @@ class FileUploadScanner(BaseModule):
             bug_id="FILE-046", name="Upload Directory Listing", severity=Severity.HIGH,
             category="File Upload",
             description="Cek apakah direktori upload bisa di-browse (directory listing).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]

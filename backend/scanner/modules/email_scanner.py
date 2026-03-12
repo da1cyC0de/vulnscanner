@@ -12,11 +12,11 @@ class EmailScanner(BaseModule):
         if not html:
             return results
 
-        results.extend(self._check_email_forms(html))
-        results.extend(self._check_email_disclosure(html))
+        results.extend(self._check_email_forms(html, target_url))
+        results.extend(self._check_email_disclosure(html, target_url))
         return results
 
-    def _check_email_forms(self, html) -> list:
+    def _check_email_forms(self, html, target_url) -> list:
         detected = False
         evidence = ""
         soup = self.parse_html(html)
@@ -33,10 +33,10 @@ class EmailScanner(BaseModule):
             bug_id="EMAIL-114", name="Email Header Injection", severity=Severity.MEDIUM,
             category="Email Vulnerabilities",
             description="Deteksi form email/kontak yang mungkin rentan email header injection.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
-    def _check_email_disclosure(self, html) -> list:
+    def _check_email_disclosure(self, html, target_url) -> list:
         detected = False
         evidence = ""
         import re
@@ -52,5 +52,5 @@ class EmailScanner(BaseModule):
             bug_id="EMAIL-115", name="Email Address Disclosure", severity=Severity.LOW,
             category="Email Vulnerabilities",
             description="Deteksi alamat email yang terekspos di halaman web (spam/phishing risk).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

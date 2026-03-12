@@ -38,7 +38,7 @@ class CmsScanner(BaseModule):
             results.append(self.make_result(
                 bug_id="CMS-084", name="WordPress Version Detection", severity=Severity.INFO,
                 category="CMS Specific", description="Deteksi versi WordPress.",
-                detected=True, evidence=f"WordPress detected. Version: {version or 'unknown'}",
+                detected=True, endpoint=target_url, evidence=f"WordPress detected. Version: {version or 'unknown'}",
             ))
 
             # User enumeration
@@ -59,6 +59,7 @@ class CmsScanner(BaseModule):
                 bug_id="CMS-086", name="WordPress User Enumeration", severity=Severity.MEDIUM,
                 category="CMS Specific", description="Cek apakah user WordPress bisa dienumerasi.",
                 detected=users_detected,
+                endpoint=f"{target_url.rstrip('/')}/?author=1" if users_detected else "",
                 evidence="User enumeration possible via ?author= parameter" if users_detected else "",
             ))
 
@@ -79,6 +80,7 @@ class CmsScanner(BaseModule):
                 bug_id="CMS-087", name="WordPress XML-RPC Enabled", severity=Severity.MEDIUM,
                 category="CMS Specific", description="Cek apakah XML-RPC WordPress aktif (brute force risk).",
                 detected=xmlrpc_detected,
+                endpoint=xmlrpc_url if xmlrpc_detected else "",
                 evidence=f"XML-RPC active at {xmlrpc_url}" if xmlrpc_detected else "",
             ))
 
@@ -102,7 +104,7 @@ class CmsScanner(BaseModule):
         return [self.make_result(
             bug_id="CMS-155", name="Joomla Detection", severity=Severity.INFO,
             category="CMS Specific", description="Deteksi Joomla CMS dan versinya.",
-            detected=is_joomla, evidence=evidence or ("Joomla detected" if is_joomla else ""),
+            detected=is_joomla, endpoint=target_url if is_joomla else "", evidence=evidence or ("Joomla detected" if is_joomla else ""),
         )]
 
     async def _check_drupal(self, session, target_url, html) -> list:
@@ -116,7 +118,7 @@ class CmsScanner(BaseModule):
         return [self.make_result(
             bug_id="CMS-156", name="Drupal Detection", severity=Severity.INFO,
             category="CMS Specific", description="Deteksi Drupal CMS dan versinya.",
-            detected=is_drupal, evidence=evidence or ("Drupal detected" if is_drupal else ""),
+            detected=is_drupal, endpoint=target_url if is_drupal else "", evidence=evidence or ("Drupal detected" if is_drupal else ""),
         )]
 
     async def _check_laravel(self, session, target_url, html) -> list:
@@ -142,7 +144,7 @@ class CmsScanner(BaseModule):
         return [self.make_result(
             bug_id="CMS-158", name="Laravel Telescope/Debug Exposed", severity=Severity.HIGH,
             category="CMS Specific", description="Deteksi Laravel dan cek eksposur Telescope/debug.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=telescope_url if "Telescope" in evidence else target_url, evidence=evidence,
         )]
 
     async def _check_django(self, session, target_url, html) -> list:
@@ -162,7 +164,7 @@ class CmsScanner(BaseModule):
         return [self.make_result(
             bug_id="CMS-159", name="Django Admin Exposed", severity=Severity.MEDIUM,
             category="CMS Specific", description="Deteksi Django admin panel yang terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=admin_url if detected else "", evidence=evidence,
         )]
 
     async def _check_spring_boot(self, session, target_url) -> list:
@@ -186,7 +188,7 @@ class CmsScanner(BaseModule):
         return [self.make_result(
             bug_id="CMS-160", name="Spring Boot Actuator Exposed", severity=Severity.HIGH,
             category="CMS Specific", description="Deteksi Spring Boot Actuator endpoints yang terekspos.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_nextjs_debug(self, session, target_url) -> list:
@@ -210,7 +212,7 @@ class CmsScanner(BaseModule):
             bug_id="CMS-163", name="Next.js Debug/Internal Paths", severity=Severity.LOW,
             category="CMS Specific",
             description="Deteksi Next.js internal/debug paths yang terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_strapi_exposed(self, session, target_url) -> list:
@@ -234,5 +236,5 @@ class CmsScanner(BaseModule):
             bug_id="CMS-164", name="Strapi CMS Exposed", severity=Severity.MEDIUM,
             category="CMS Specific",
             description="Deteksi Strapi CMS dan endpoint admin yang terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]

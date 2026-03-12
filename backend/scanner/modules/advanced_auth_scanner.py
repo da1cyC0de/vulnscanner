@@ -15,14 +15,14 @@ class AdvancedAuthScanner(BaseModule):
         if not html:
             return results
 
-        results.extend(self._check_username_enumeration_hints(html))
+        results.extend(self._check_username_enumeration_hints(html, target_url))
         results.extend(await self._check_password_reset(session, target_url, html))
-        results.extend(self._check_oauth_misconfig(html))
+        results.extend(self._check_oauth_misconfig(html, target_url))
         results.extend(await self._check_jwt_in_url(session, target_url, html))
 
         return results
 
-    def _check_username_enumeration_hints(self, html) -> list:
+    def _check_username_enumeration_hints(self, html, target_url) -> list:
         detected = False
         evidence = ""
         enum_indicators = [
@@ -41,7 +41,7 @@ class AdvancedAuthScanner(BaseModule):
             bug_id="AUTH-097", name="Username Enumeration", severity=Severity.MEDIUM,
             category="Authentication Advanced",
             description="Deteksi apakah error message membedakan username valid/invalid.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
     async def _check_password_reset(self, session, target_url, html) -> list:
@@ -72,10 +72,10 @@ class AdvancedAuthScanner(BaseModule):
             bug_id="AUTH-098", name="Password Reset Poisoning", severity=Severity.HIGH,
             category="Authentication Advanced",
             description="Tes Host Header Poisoning pada password reset.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=reset_url if detected else "", evidence=evidence,
         )]
 
-    def _check_oauth_misconfig(self, html) -> list:
+    def _check_oauth_misconfig(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         oauth_patterns = [
@@ -92,7 +92,7 @@ class AdvancedAuthScanner(BaseModule):
             bug_id="AUTH-099", name="OAuth Misconfiguration", severity=Severity.HIGH,
             category="Authentication Advanced",
             description="Deteksi misconfiguration pada implementasi OAuth.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_jwt_in_url(self, session, target_url, html) -> list:
@@ -116,5 +116,5 @@ class AdvancedAuthScanner(BaseModule):
             bug_id="AUTH-100", name="JWT Token Exposure", severity=Severity.HIGH,
             category="Authentication Advanced",
             description="Deteksi JWT token yang terekspos di URL atau page source.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

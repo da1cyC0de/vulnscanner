@@ -13,12 +13,12 @@ class CryptoScanner(BaseModule):
         if not html:
             return results
 
-        results.extend(self._check_weak_hashing(html))
-        results.extend(self._check_insecure_random(html))
-        results.extend(self._check_base64_secrets(html))
+        results.extend(self._check_weak_hashing(html, target_url))
+        results.extend(self._check_insecure_random(html, target_url))
+        results.extend(self._check_base64_secrets(html, target_url))
         return results
 
-    def _check_weak_hashing(self, html) -> list:
+    def _check_weak_hashing(self, html, target_url) -> list:
         detected = False
         evidence_parts = []
         md5_pattern = r'\b[a-fA-F0-9]{32}\b'
@@ -38,10 +38,10 @@ class CryptoScanner(BaseModule):
             bug_id="CRYPT-144", name="Weak Hashing Detection", severity=Severity.LOW,
             category="Cryptographic",
             description="Deteksi penggunaan hash lemah (MD5, SHA1) di response.",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=target_url if detected else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
-    def _check_insecure_random(self, html) -> list:
+    def _check_insecure_random(self, html, target_url) -> list:
         detected = False
         evidence = ""
         patterns = [
@@ -61,10 +61,10 @@ class CryptoScanner(BaseModule):
             bug_id="CRYPT-145", name="Insecure Random Number Generator", severity=Severity.MEDIUM,
             category="Cryptographic",
             description="Deteksi penggunaan fungsi random yang tidak aman secara kriptografis.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]
 
-    def _check_base64_secrets(self, html) -> list:
+    def _check_base64_secrets(self, html, target_url) -> list:
         detected = False
         evidence = ""
         import base64
@@ -85,5 +85,5 @@ class CryptoScanner(BaseModule):
             bug_id="CRYPT-146", name="Base64 Encoded Secrets", severity=Severity.HIGH,
             category="Cryptographic",
             description="Deteksi secret yang di-encode Base64 di source code.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=target_url if detected else "", evidence=evidence,
         )]

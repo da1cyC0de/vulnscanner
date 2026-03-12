@@ -40,7 +40,7 @@ class ApiAdvancedScanner(BaseModule):
             bug_id="APIAV-129", name="IDOR / Broken Object Level Authorization", severity=Severity.HIGH,
             category="API Advanced",
             description="Cek endpoint API yang mungkin rentan IDOR (akses data user lain).",
-            detected=detected, evidence="\n".join(evidence_parts[:5]),
+            detected=detected, endpoint=evidence_parts[0].split('] ')[1] if evidence_parts else "", evidence="\n".join(evidence_parts[:5]),
         )]
 
     async def _check_graphql_batch(self, session, target_url) -> list:
@@ -70,7 +70,7 @@ class ApiAdvancedScanner(BaseModule):
             bug_id="APIAV-132", name="GraphQL Batch Attack", severity=Severity.MEDIUM,
             category="API Advanced",
             description="Cek apakah GraphQL menerima batch queries (brute force risk).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_wsdl(self, session, target_url) -> list:
@@ -95,7 +95,7 @@ class ApiAdvancedScanner(BaseModule):
             bug_id="APIAV-135", name="WSDL Disclosure (SOAP)", severity=Severity.LOW,
             category="API Advanced",
             description="Cek apakah WSDL file SOAP service terekspos.",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
 
     async def _check_graphql_introspection(self, session, target_url) -> list:
@@ -124,5 +124,5 @@ class ApiAdvancedScanner(BaseModule):
             bug_id="APIAV-136", name="GraphQL Schema Introspection", severity=Severity.MEDIUM,
             category="API Advanced",
             description="GraphQL introspection mengekspos detail schema (queries, mutations).",
-            detected=detected, evidence=evidence,
+            detected=detected, endpoint=url if detected else "", evidence=evidence,
         )]
