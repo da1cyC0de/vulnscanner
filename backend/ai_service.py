@@ -2,8 +2,18 @@ import aiohttp
 import json
 import os
 import re
+from pathlib import Path
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBRnZ_sfdHVGEMAYVLCeQ5EW1fXO77xnp8")
+# Load .env file if exists (for local development)
+_env_file = Path(__file__).resolve().parent.parent / ".env"
+if _env_file.exists():
+    for line in _env_file.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = "gemini-2.5-flash"
 
 
@@ -96,9 +106,18 @@ PENTING:
                 timeout=aiohttp.ClientTimeout(total=60),
             ) as resp:
                 if resp.status != 200:
+                    err_body = await resp.text()
+                    if "leaked" in err_body.lower():
+                        msg = "API key sudah expired/leaked. Buat key baru di https://aistudio.google.com/apikey lalu update .env file."
+                    elif resp.status == 403:
+                        msg = "API key tidak valid atau expired. Cek GEMINI_API_KEY di file .env"
+                    elif resp.status == 429:
+                        msg = "Rate limit tercapai. Tunggu beberapa menit lalu coba lagi."
+                    else:
+                        msg = f"AI service error (status {resp.status}). Coba lagi nanti."
                     return {
                         "ai_generated": False,
-                        "error": f"AI service error (status {resp.status}). Coba lagi nanti."
+                        "error": msg
                     }
 
                 data = await resp.json()
