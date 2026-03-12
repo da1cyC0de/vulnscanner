@@ -16,6 +16,8 @@ class ClientSideAdvancedScanner(BaseModule):
         results.extend(self._check_postmessage(html))
         results.extend(self._check_tabnabbing(html))
         results.extend(self._check_sri(html))
+        results.extend(self._check_css_injection(html))
+        results.extend(self._check_mixed_content(html, target_url))
         return results
 
     def _check_postmessage(self, html) -> list:
@@ -68,5 +70,47 @@ class ClientSideAdvancedScanner(BaseModule):
             bug_id="COMP-106", name="Subresource Integrity (SRI) Missing", severity=Severity.LOW,
             category="Client-Side Advanced",
             description="Cek external resources yang tidak memiliki SRI attribute.",
+            detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    def _check_css_injection(self, html) -> list:
+        detected = False
+        evidence = ""
+        patterns = [
+            r'style\s*=\s*["\'][^"]*expression\s*\(',
+            r'style\s*=\s*["\'][^"]*url\s*\(\s*["\']?javascript:',
+            r'style\s*=\s*["\'][^"]*-moz-binding',
+            r'@import\s+url\s*\(["\']https?://',
+        ]
+        for p in patterns:
+            match = re.search(p, html, re.IGNORECASE)
+            if match:
+                detected = True
+                evidence = f"CSS injection pattern found: {match.group()[:100]}"
+                break
+
+        return [self.make_result(
+            bug_id="CLIADV-124", name="CSS Injection", severity=Severity.MEDIUM,
+            category="Client-Side Advanced",
+            description="Deteksi pola CSS injection (expression, moz-binding).",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_mixed_content(self, html, target_url) -> list:
+        if not target_url.startswith("https://"):
+            return []
+        detected = False
+        evidence_parts = []
+        soup = self.parse_html(html)
+        for tag in soup.find_all(["script", "iframe", "form", "object"]):
+            src = tag.get("src") or tag.get("action") or tag.get("data") or ""
+            if src.startswith("http://"):
+                detected = True
+                evidence_parts.append(f"Active mixed content: <{tag.name}> loads {src[:80]}")
+
+        return [self.make_result(
+            bug_id="CLIADV-125", name="Mixed Content (Active)", severity=Severity.MEDIUM,
+            category="Client-Side Advanced",
+            description="Deteksi active mixed content (HTTP resource di HTTPS page).",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
         )]

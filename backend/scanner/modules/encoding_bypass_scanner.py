@@ -19,6 +19,8 @@ class EncodingBypassScanner(BaseModule):
         results = []
         results.extend(await self._detect_waf(session, target_url))
         results.extend(await self._check_hpp(session, target_url))
+        results.extend(await self._check_double_encoding(session, target_url))
+        results.extend(await self._check_null_byte(session, target_url))
         return results
 
     async def _detect_waf(self, session, target_url) -> list:
@@ -65,5 +67,47 @@ class EncodingBypassScanner(BaseModule):
             bug_id="ENC-169", name="HTTP Parameter Pollution (HPP)", severity=Severity.LOW,
             category="Encoding & Bypass",
             description="Cek apakah server rentan terhadap HTTP Parameter Pollution.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_double_encoding(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        test_url = f"{target_url.rstrip('/')}/%252e%252e%252f"
+        try:
+            async with session.get(test_url, ssl=False, allow_redirects=False,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    text = await resp.text(errors="replace")
+                    if "index of" in text.lower() or "parent directory" in text.lower():
+                        detected = True
+                        evidence = f"Double-encoded path traversal accepted: {test_url}"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="ENC-166", name="Double Encoding Bypass", severity=Severity.MEDIUM,
+            category="Encoding & Bypass",
+            description="Cek apakah server rentan terhadap double encoding bypass.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_null_byte(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        test_url = f"{target_url.rstrip('/')}/%00.html"
+        try:
+            async with session.get(test_url, ssl=False, allow_redirects=False,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    detected = True
+                    evidence = f"Null byte not rejected (status {resp.status}): {test_url}"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="ENC-167", name="Null Byte Injection", severity=Severity.MEDIUM,
+            category="Encoding & Bypass",
+            description="Tes apakah server rentan terhadap null byte injection.",
             detected=detected, evidence=evidence,
         )]

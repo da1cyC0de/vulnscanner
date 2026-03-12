@@ -10,6 +10,7 @@ class CacheProxyScanner(BaseModule):
         results = []
         results.extend(await self._check_cache_poisoning(session, target_url))
         results.extend(await self._check_cache_deception(session, target_url))
+        results.extend(await self._check_proxy_misconfiguration(session, target_url))
         return results
 
     async def _check_cache_poisoning(self, session, target_url) -> list:
@@ -56,5 +57,30 @@ class CacheProxyScanner(BaseModule):
             bug_id="CACHE-112", name="Web Cache Deception", severity=Severity.HIGH,
             category="Cache & Proxy",
             description="Tes Web Cache Deception Attack.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_proxy_misconfiguration(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        headers = self._default_headers()
+        headers["X-Forwarded-For"] = "127.0.0.1"
+        headers["X-Original-URL"] = "/admin"
+        headers["X-Rewrite-URL"] = "/admin"
+        try:
+            async with session.get(target_url, headers=headers, ssl=False,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                text = await resp.text(errors="replace")
+                if any(w in text.lower() for w in ["admin", "dashboard", "panel", "forbidden"]):
+                    if resp.status == 200 and "admin" in text.lower():
+                        detected = True
+                        evidence = "X-Original-URL/X-Rewrite-URL bypass may work - admin content in response"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="CACHE-113", name="Reverse Proxy Bypass", severity=Severity.HIGH,
+            category="Cache & Proxy",
+            description="Cek bypass access control via X-Original-URL / X-Rewrite-URL headers.",
             detected=detected, evidence=evidence,
         )]

@@ -45,6 +45,8 @@ class InfoDisclosureScanner(BaseModule):
         results.extend(await self._check_robots_txt(session, target_url))
         results.extend(self._check_debug_mode(html, resp))
         results.extend(self._check_html_comments(html))
+        results.extend(self._check_stack_trace_leak(html))
+        results.extend(await self._check_sitemap_xml(session, target_url))
 
         return results
 
@@ -275,4 +277,55 @@ class InfoDisclosureScanner(BaseModule):
             category="Information Disclosure",
             description="Cek HTML comments yang mengandung informasi sensitif.",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    def _check_stack_trace_leak(self, html) -> list:
+        if not html:
+            return []
+        detected = False
+        evidence = ""
+        traces = [
+            r'at\s+[\w.]+\(.*?:\d+:\d+\)',
+            r'File\s+"[^"]+",\s+line\s+\d+',
+            r'#\d+\s+[\w\\]+->\w+\(.*?\)',
+            r'java\.[\w.]+Exception',
+            r'System\.\w+Exception',
+        ]
+        for pattern in traces:
+            match = re.search(pattern, html)
+            if match:
+                detected = True
+                evidence = f"Stack trace found: {match.group()[:120]}"
+                break
+
+        return [self.make_result(
+            bug_id="INFO-033", name="Stack Trace Exposure", severity=Severity.MEDIUM,
+            category="Information Disclosure",
+            description="Deteksi stack trace yang terekspos di halaman web.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_sitemap_xml(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        url = urljoin(target_url.rstrip("/") + "/", "sitemap.xml")
+        try:
+            async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    text = await resp.text(errors="replace")
+                    if "<url>" in text.lower() or "<loc>" in text.lower():
+                        import re as _re
+                        locs = _re.findall(r'<loc>(.*?)</loc>', text)
+                        sensitive = [l for l in locs if any(w in l.lower() for w in ["admin", "api", "internal", "staging", "dev", "test", "debug"])]
+                        if sensitive:
+                            detected = True
+                            evidence = f"Sensitive paths in sitemap.xml: {', '.join(sensitive[:5])}"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="INFO-034", name="Sitemap.xml Sensitive Path Disclosure", severity=Severity.LOW,
+            category="Information Disclosure",
+            description="Analisis sitemap.xml untuk path sensitif yang terekspos.",
+            detected=detected, evidence=evidence,
         )]

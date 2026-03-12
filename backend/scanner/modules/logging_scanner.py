@@ -17,6 +17,7 @@ class LoggingScanner(BaseModule):
     async def scan(self, target_url: str, session: aiohttp.ClientSession) -> list[VulnerabilityResult]:
         results = []
         results.extend(await self._check_log_files(session, target_url))
+        results.extend(await self._check_security_txt(session, target_url))
         return results
 
     async def _check_log_files(self, session, target_url) -> list:
@@ -42,4 +43,32 @@ class LoggingScanner(BaseModule):
             category="Logging & Monitoring",
             description="Cek file log yang terekspos dan bisa diakses publik.",
             detected=detected, evidence="\n".join(evidence_parts[:10]),
+        )]
+
+    async def _check_security_txt(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        paths = [".well-known/security.txt", "security.txt"]
+        found = False
+        for p in paths:
+            url = urljoin(target_url.rstrip("/") + "/", p)
+            try:
+                async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if "contact:" in text.lower():
+                            found = True
+                            break
+            except Exception:
+                pass
+
+        if not found:
+            detected = True
+            evidence = "security.txt not found (RFC 9116 recommended)"
+
+        return [self.make_result(
+            bug_id="LOG-171", name="Missing security.txt", severity=Severity.INFO,
+            category="Logging & Monitoring",
+            description="Cek apakah security.txt tersedia sesuai RFC 9116.",
+            detected=detected, evidence=evidence,
         )]

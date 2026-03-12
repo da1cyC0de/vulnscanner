@@ -22,6 +22,7 @@ class SupplyChainScanner(BaseModule):
             return results
 
         results.extend(self._check_js_libraries(html))
+        results.extend(self._check_outdated_frameworks(html))
         return results
 
     def _check_js_libraries(self, html) -> list:
@@ -44,6 +45,34 @@ class SupplyChainScanner(BaseModule):
             bug_id="SUPPLY-161", name="JavaScript Library Vulnerability", severity=Severity.MEDIUM,
             category="Supply Chain",
             description="Deteksi library JavaScript yang outdated dan memiliki vulnerability.",
+            detected=detected, evidence="\n".join(evidence_parts[:10]),
+        )]
+
+    def _check_outdated_frameworks(self, html) -> list:
+        detected = False
+        evidence_parts = []
+        extra = {
+            "react": {"pattern": r'react[/-]?(\d+\.\d+\.\d+)', "min_safe": "18.0.0", "cve": "Various"},
+            "vue": {"pattern": r'vue[/-]?(\d+\.\d+\.\d+)', "min_safe": "3.0.0", "cve": "Various"},
+            "axios": {"pattern": r'axios[/-]?(\d+\.\d+\.\d+)', "min_safe": "0.21.2", "cve": "CVE-2021-3749"},
+            "handlebars": {"pattern": r'handlebars[/-]?(\d+\.\d+\.\d+)', "min_safe": "4.7.7", "cve": "CVE-2021-23369"},
+            "underscore": {"pattern": r'underscore[/-]?(\d+\.\d+\.\d+)', "min_safe": "1.13.6", "cve": "CVE-2021-23358"},
+        }
+        for lib_name, info in extra.items():
+            match = re.search(info["pattern"], html, re.IGNORECASE)
+            if match:
+                version = match.group(1)
+                try:
+                    if self._version_lt(version, info["min_safe"]):
+                        detected = True
+                        evidence_parts.append(f"{lib_name} v{version} (vulnerable, min safe: {info['min_safe']}, {info['cve']})")
+                except Exception:
+                    pass
+
+        return [self.make_result(
+            bug_id="SUPPLY-162", name="Outdated Frontend Framework", severity=Severity.MEDIUM,
+            category="Supply Chain",
+            description="Deteksi framework frontend yang outdated (React, Vue, Axios, dll).",
             detected=detected, evidence="\n".join(evidence_parts[:10]),
         )]
 

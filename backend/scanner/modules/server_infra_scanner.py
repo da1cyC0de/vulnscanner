@@ -14,6 +14,8 @@ class ServerInfraScanner(BaseModule):
         results.extend(await self._check_server_status(session, target_url))
         results.extend(await self._check_phpinfo(session, target_url))
         results.extend(await self._check_graphql(session, target_url))
+        results.extend(await self._check_cors_wildcard(session, target_url))
+        results.extend(await self._check_default_pages(session, target_url))
         return results
 
     async def _check_server_status(self, session, target_url) -> list:
@@ -92,5 +94,55 @@ class ServerInfraScanner(BaseModule):
             bug_id="SRV-074", name="GraphQL Introspection Enabled", severity=Severity.MEDIUM,
             category="Server & Infrastructure",
             description="Cek apakah GraphQL introspection query aktif.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_cors_wildcard(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        try:
+            headers = self._default_headers()
+            headers["Origin"] = "https://attacker.com"
+            async with session.get(target_url, headers=headers, ssl=False,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                acao = resp.headers.get("Access-Control-Allow-Origin", "")
+                acac = resp.headers.get("Access-Control-Allow-Credentials", "")
+                if acao == "https://attacker.com" and acac.lower() == "true":
+                    detected = True
+                    evidence = f"Server reflects origin 'attacker.com' WITH credentials — critical CORS misconfiguration"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="SRV-075", name="CORS Origin Reflection with Credentials", severity=Severity.HIGH,
+            category="Server & Infrastructure",
+            description="Cek apakah server me-reflect origin attacker + allow credentials.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_default_pages(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        default_sigs = {
+            "Apache": "it works", "Nginx": "welcome to nginx",
+            "IIS": "iis windows server", "Tomcat": "apache tomcat",
+        }
+        try:
+            async with session.get(target_url, ssl=False,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                text = await resp.text(errors="replace")
+                text_lower = text.lower()
+                for server, sig in default_sigs.items():
+                    if sig in text_lower:
+                        detected = True
+                        evidence = f"Default {server} page detected — server not configured properly"
+                        break
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="SRV-076", name="Default Web Server Page", severity=Severity.LOW,
+            category="Server & Infrastructure",
+            description="Deteksi halaman default web server (Apache, Nginx, IIS, Tomcat).",
             detected=detected, evidence=evidence,
         )]

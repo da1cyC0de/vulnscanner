@@ -28,6 +28,9 @@ class DatabaseScanner(BaseModule):
         results.extend(await self._check_db_panels(session, target_url))
         results.extend(self._check_db_connection_strings(html))
         results.extend(self._check_db_errors(html))
+        results.extend(await self._check_redis_exposed(session, target_url))
+        results.extend(await self._check_mongodb_exposed(session, target_url))
+        results.extend(await self._check_elasticsearch_exposed(session, target_url))
 
         return results
 
@@ -131,5 +134,81 @@ class DatabaseScanner(BaseModule):
             bug_id="DB-063", name="Database Error Message Leakage", severity=Severity.MEDIUM,
             category="Database Exposure",
             description="Deteksi pesan error database yang membocorkan informasi.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_redis_exposed(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        from urllib.parse import urlparse
+        parsed = urlparse(target_url)
+        hostname = parsed.hostname
+        try:
+            import asyncio
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(hostname, 6379), timeout=5
+            )
+            writer.write(b"PING\r\n")
+            await writer.drain()
+            data = await asyncio.wait_for(reader.read(100), timeout=3)
+            if b"PONG" in data or b"redis" in data.lower():
+                detected = True
+                evidence = f"Redis server accessible at {hostname}:6379"
+            writer.close()
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="DB-059", name="Redis Server Exposed", severity=Severity.CRITICAL,
+            category="Database Exposure",
+            description="Cek apakah Redis server terekspos tanpa autentikasi.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_mongodb_exposed(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        from urllib.parse import urlparse
+        parsed = urlparse(target_url)
+        hostname = parsed.hostname
+        try:
+            import asyncio
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(hostname, 27017), timeout=5
+            )
+            writer.close()
+            detected = True
+            evidence = f"MongoDB port open at {hostname}:27017"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="DB-060", name="MongoDB Exposed", severity=Severity.CRITICAL,
+            category="Database Exposure",
+            description="Cek apakah MongoDB terekspos dan bisa diakses dari luar.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_elasticsearch_exposed(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        from urllib.parse import urlparse
+        parsed = urlparse(target_url)
+        hostname = parsed.hostname
+        es_url = f"http://{hostname}:9200"
+        try:
+            async with session.get(es_url, ssl=False, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status == 200:
+                    text = await resp.text(errors="replace")
+                    if "lucene" in text.lower() or "elasticsearch" in text.lower():
+                        detected = True
+                        evidence = f"Elasticsearch exposed at {es_url}"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="DB-061", name="Elasticsearch Exposed", severity=Severity.HIGH,
+            category="Database Exposure",
+            description="Cek apakah Elasticsearch terekspos dan bisa diakses publik.",
             detected=detected, evidence=evidence,
         )]

@@ -19,6 +19,8 @@ class SslTlsScanner(BaseModule):
         results.extend(await self._check_https_redirect(session, target_url))
         results.extend(await self._check_mixed_content(session, target_url))
         results.extend(await self._check_hsts_preload(session, target_url))
+        results.extend(await self._check_tls_version(hostname))
+        results.extend(await self._check_cert_transparency(session, target_url))
 
         return results
 
@@ -119,5 +121,50 @@ class SslTlsScanner(BaseModule):
             bug_id="SSL-105", name="HSTS Preload Check", severity=Severity.LOW,
             category="SSL/TLS & Network",
             description="Cek apakah HSTS preload directive aktif.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_tls_version(self, hostname) -> list:
+        detected = False
+        evidence = ""
+        weak_protocols = [
+            (ssl.PROTOCOL_TLSv1 if hasattr(ssl, 'PROTOCOL_TLSv1') else None, "TLSv1.0"),
+        ]
+        for proto, name in weak_protocols:
+            if proto is None:
+                continue
+            try:
+                ctx = ssl.SSLContext(proto)
+                conn = ctx.wrap_socket(socket.socket(), server_hostname=hostname)
+                conn.settimeout(5)
+                conn.connect((hostname, 443))
+                conn.close()
+                detected = True
+                evidence = f"Server accepts deprecated {name}"
+                break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="SSL-041", name="Weak TLS Version Supported", severity=Severity.HIGH,
+            category="SSL/TLS & Network",
+            description="Cek apakah server masih mendukung TLS versi lama (TLSv1.0/1.1).",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_cert_transparency(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        _, resp = await self.fetch_text(session, target_url)
+        if resp:
+            expect_ct = resp.headers.get("Expect-CT", "")
+            if not expect_ct:
+                detected = True
+                evidence = "Missing Expect-CT header (Certificate Transparency not enforced)"
+
+        return [self.make_result(
+            bug_id="SSL-044", name="Certificate Transparency Check", severity=Severity.LOW,
+            category="SSL/TLS & Network",
+            description="Cek apakah Certificate Transparency (Expect-CT) diaktifkan.",
             detected=detected, evidence=evidence,
         )]

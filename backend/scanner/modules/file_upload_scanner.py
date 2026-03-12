@@ -15,6 +15,7 @@ class FileUploadScanner(BaseModule):
             return results
 
         results.extend(self._check_file_upload_forms(html, target_url))
+        results.extend(await self._check_upload_directory(session, target_url))
         return results
 
     def _check_file_upload_forms(self, html, target_url) -> list:
@@ -50,3 +51,27 @@ class FileUploadScanner(BaseModule):
                 evidence="Upload forms found that may accept dangerous file types" if detected else "",
             ),
         ]
+
+    async def _check_upload_directory(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        upload_dirs = ["uploads/", "upload/", "files/", "media/", "attachments/", "images/uploads/"]
+        for d in upload_dirs:
+            url = urljoin(target_url.rstrip("/") + "/", d)
+            try:
+                async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if "index of" in text.lower() or "parent directory" in text.lower():
+                            detected = True
+                            evidence = f"Upload directory listing enabled: {url}"
+                            break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="FILE-046", name="Upload Directory Listing", severity=Severity.HIGH,
+            category="File Upload",
+            description="Cek apakah direktori upload bisa di-browse (directory listing).",
+            detected=detected, evidence=evidence,
+        )]

@@ -14,6 +14,8 @@ class CryptoScanner(BaseModule):
             return results
 
         results.extend(self._check_weak_hashing(html))
+        results.extend(self._check_insecure_random(html))
+        results.extend(self._check_base64_secrets(html))
         return results
 
     def _check_weak_hashing(self, html) -> list:
@@ -37,4 +39,51 @@ class CryptoScanner(BaseModule):
             category="Cryptographic",
             description="Deteksi penggunaan hash lemah (MD5, SHA1) di response.",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    def _check_insecure_random(self, html) -> list:
+        detected = False
+        evidence = ""
+        patterns = [
+            r'Math\.random\(\)',
+            r'random\.random\(\)',
+            r'rand\(\)',
+            r'mt_rand\(\)',
+        ]
+        for p in patterns:
+            match = re.search(p, html)
+            if match:
+                detected = True
+                evidence = f"Insecure random function found: {match.group()}"
+                break
+
+        return [self.make_result(
+            bug_id="CRYPT-145", name="Insecure Random Number Generator", severity=Severity.MEDIUM,
+            category="Cryptographic",
+            description="Deteksi penggunaan fungsi random yang tidak aman secara kriptografis.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_base64_secrets(self, html) -> list:
+        detected = False
+        evidence = ""
+        import base64
+        b64_pattern = r'[A-Za-z0-9+/]{40,}={0,2}'
+        matches = re.findall(b64_pattern, html)
+        for m in matches[:10]:
+            try:
+                decoded = base64.b64decode(m).decode('utf-8', errors='replace')
+                secret_keywords = ['password', 'secret', 'key', 'token', 'api_key', 'private']
+                if any(kw in decoded.lower() for kw in secret_keywords):
+                    detected = True
+                    evidence = f"Base64-encoded secret found: {decoded[:80]}..."
+                    break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="CRYPT-146", name="Base64 Encoded Secrets", severity=Severity.HIGH,
+            category="Cryptographic",
+            description="Deteksi secret yang di-encode Base64 di source code.",
+            detected=detected, evidence=evidence,
         )]

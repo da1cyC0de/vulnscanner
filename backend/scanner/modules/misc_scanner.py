@@ -16,6 +16,9 @@ class MiscScanner(BaseModule):
         results.extend(await self._check_sitemap(session, target_url))
         results.extend(self._check_jsonp(html))
         results.extend(self._check_cache_headers(resp))
+        results.extend(self._check_internal_ip_disclosure(html))
+        results.extend(await self._check_clientaccesspolicy(session, target_url))
+        results.extend(self._check_sensitive_form_action(html, target_url))
         return results
 
     async def _check_crossdomain(self, session, target_url) -> list:
@@ -98,5 +101,64 @@ class MiscScanner(BaseModule):
             bug_id="MISC-108", name="Cache Control Headers Check", severity=Severity.LOW,
             category="Miscellaneous",
             description="Cek apakah Cache-Control header mencegah caching data sensitif.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_internal_ip_disclosure(self, html) -> list:
+        if not html:
+            return []
+        detected = False
+        evidence = ""
+        ip_pattern = r'(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})'
+        match = re.search(ip_pattern, html)
+        if match:
+            detected = True
+            evidence = f"Internal IP address found in page: {match.group()}"
+
+        return [self.make_result(
+            bug_id="MISC-179", name="Internal IP Address Disclosure", severity=Severity.LOW,
+            category="Miscellaneous",
+            description="Deteksi alamat IP internal yang bocor di halaman web.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_clientaccesspolicy(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        url = urljoin(target_url.rstrip("/") + "/", "clientaccesspolicy.xml")
+        try:
+            async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    text = await resp.text(errors="replace")
+                    if 'domain="*"' in text or "allow-from" in text:
+                        detected = True
+                        evidence = f"clientaccesspolicy.xml found with permissive policy at {url}"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="MISC-180", name="ClientAccessPolicy.xml Misconfiguration", severity=Severity.MEDIUM,
+            category="Miscellaneous",
+            description="Cek clientaccesspolicy.xml yang terlalu permissive.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_sensitive_form_action(self, html, target_url) -> list:
+        if not html:
+            return []
+        detected = False
+        evidence = ""
+        soup = self.parse_html(html)
+        for form in soup.find_all("form"):
+            action = form.get("action", "")
+            if action.startswith("http://") and target_url.startswith("https://"):
+                detected = True
+                evidence = f"Form submits to insecure HTTP endpoint: {action[:100]}"
+                break
+
+        return [self.make_result(
+            bug_id="MISC-181", name="Insecure Form Action", severity=Severity.MEDIUM,
+            category="Miscellaneous",
+            description="Deteksi form yang submit data ke endpoint HTTP (bukan HTTPS).",
             detected=detected, evidence=evidence,
         )]

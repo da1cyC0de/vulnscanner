@@ -46,6 +46,16 @@ class InjectionScanner(BaseModule):
         '{"$gt":""}', '{"$ne":""}', '{"$regex":".*"}',
     ]
 
+    XPATH_PAYLOADS = [
+        "' or '1'='1", "' or ''='", "1' or '1'='1' or '1'='1",
+        "'] | //* | //*['", "<!--", "admin' or '1'='1",
+    ]
+
+    EL_PAYLOADS = [
+        "${7*7}", "#{7*7}", "${applicationScope}",
+        "${T(java.lang.Runtime).getRuntime().exec('id')}",
+    ]
+
     async def scan(self, target_url: str, session: aiohttp.ClientSession) -> list[VulnerabilityResult]:
         results = []
         html, resp = await self.fetch_text(session, target_url)
@@ -63,6 +73,8 @@ class InjectionScanner(BaseModule):
         results.extend(await self._scan_host_header_injection(session, target_url))
         results.extend(await self._scan_nosql_injection(session, target_url, forms))
         results.extend(await self._scan_ldap_injection(session, target_url, forms))
+        results.extend(await self._scan_xpath_injection(session, target_url, forms))
+        results.extend(await self._scan_el_injection(session, target_url, forms))
 
         return results
 
@@ -417,5 +429,89 @@ class InjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="INJ-006", name="LDAP Injection", severity=Severity.HIGH,
             category="Injection", description="Tes LDAP Injection pada form inputs.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _scan_xpath_injection(self, session, target_url, forms) -> list:
+        detected = False
+        evidence = ""
+        xpath_errors = ["xpath", "xmlsyntaxerror", "invalid predicate", "unterminated", "xpatherror"]
+
+        for form in forms:
+            for inp in form["inputs"]:
+                if inp["type"] in ("submit", "hidden", "button"):
+                    continue
+                for payload in self.XPATH_PAYLOADS[:3]:
+                    data = {i["name"]: i["value"] for i in form["inputs"]}
+                    data[inp["name"]] = payload
+                    try:
+                        if form["method"] == "POST":
+                            async with session.post(form["action"], data=data, ssl=False,
+                                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                                text = (await resp.text(errors="replace")).lower()
+                        else:
+                            async with session.get(form["action"], params=data, ssl=False,
+                                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                                text = (await resp.text(errors="replace")).lower()
+                        for err in xpath_errors:
+                            if err in text:
+                                detected = True
+                                evidence = f"XPath error detected with payload: {payload}"
+                                break
+                    except Exception:
+                        pass
+                    if detected:
+                        break
+                if detected:
+                    break
+            if detected:
+                break
+
+        return [self.make_result(
+            bug_id="INJ-010", name="XPath Injection", severity=Severity.HIGH,
+            category="Injection", description="Tes XPath Injection pada form inputs.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _scan_el_injection(self, session, target_url, forms) -> list:
+        detected = False
+        evidence = ""
+
+        for form in forms:
+            for inp in form["inputs"]:
+                if inp["type"] in ("submit", "hidden", "button"):
+                    continue
+                for payload in self.EL_PAYLOADS[:2]:
+                    data = {i["name"]: i["value"] for i in form["inputs"]}
+                    data[inp["name"]] = payload
+                    try:
+                        if form["method"] == "POST":
+                            async with session.post(form["action"], data=data, ssl=False,
+                                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                                text = await resp.text(errors="replace")
+                        else:
+                            async with session.get(form["action"], params=data, ssl=False,
+                                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                                text = await resp.text(errors="replace")
+                        if "49" in text and "${7*7}" in payload:
+                            detected = True
+                            evidence = f"Expression Language evaluated: {payload} → 49"
+                            break
+                        if "49" in text and "#{7*7}" in payload:
+                            detected = True
+                            evidence = f"Expression Language evaluated: {payload} → 49"
+                            break
+                    except Exception:
+                        pass
+                    if detected:
+                        break
+                if detected:
+                    break
+            if detected:
+                break
+
+        return [self.make_result(
+            bug_id="INJ-011", name="Expression Language Injection", severity=Severity.CRITICAL,
+            category="Injection", description="Tes Expression Language (EL) Injection pada form inputs.",
             detected=detected, evidence=evidence,
         )]

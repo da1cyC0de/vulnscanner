@@ -19,6 +19,8 @@ class BusinessLogicScanner(BaseModule):
         results.extend(await self._check_parameter_tampering(session, target_url, html))
         results.extend(await self._check_negative_values(session, target_url, html))
         results.extend(await self._check_race_condition(session, target_url, html))
+        results.extend(self._check_idor_references(html))
+        results.extend(await self._check_privilege_escalation(session, target_url))
 
         return results
 
@@ -144,4 +146,46 @@ class BusinessLogicScanner(BaseModule):
             description="Deteksi form POST yang mungkin rentan race condition (double submit).",
             detected=has_post_forms,
             evidence=f"Found {len(forms)} POST forms that may be vulnerable to race conditions" if has_post_forms else "",
+        )]
+
+    def _check_idor_references(self, html) -> list:
+        detected = False
+        evidence_parts = []
+        soup = self.parse_html(html)
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if re.search(r'[?&](id|user_id|account_id|order_id|invoice_id)=\d+', href, re.I):
+                detected = True
+                evidence_parts.append(f"Potential IDOR link: {href[:100]}")
+
+        return [self.make_result(
+            bug_id="BIZ-021", name="IDOR Reference in Links", severity=Severity.MEDIUM,
+            category="Business Logic",
+            description="Deteksi link dengan parameter ID numerik yang mungkin rentan IDOR.",
+            detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    async def _check_privilege_escalation(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        priv_paths = ["admin", "admin/", "dashboard", "manager", "moderator", "superuser"]
+        for p in priv_paths:
+            url = urljoin(target_url.rstrip("/") + "/", p)
+            try:
+                async with session.get(url, ssl=False, allow_redirects=False,
+                                       timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if any(w in text.lower() for w in ["dashboard", "panel", "admin", "settings", "manage"]):
+                            detected = True
+                            evidence = f"Admin/privileged page accessible without auth at {url} (status {resp.status})"
+                            break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="BIZ-022", name="Privilege Escalation - Unprotected Admin", severity=Severity.HIGH,
+            category="Business Logic",
+            description="Cek apakah halaman admin/privileged bisa diakses tanpa autentikasi.",
+            detected=detected, evidence=evidence,
         )]

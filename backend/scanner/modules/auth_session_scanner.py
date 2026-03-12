@@ -22,6 +22,9 @@ class AuthSessionScanner(BaseModule):
         results.extend(self._check_jwt(resp, html))
         results.extend(self._check_session_storage(html))
         results.extend(self._check_session_id_entropy(resp))
+        results.extend(self._check_account_lockout(html))
+        results.extend(self._check_password_policy(html))
+        results.extend(self._check_autocomplete_password(html))
 
         return results
 
@@ -214,5 +217,68 @@ class AuthSessionScanner(BaseModule):
             bug_id="AUTH-054", name="Session ID Entropy Check", severity=Severity.MEDIUM,
             category="Authentication & Session",
             description="Cek apakah session ID cukup panjang dan random.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_account_lockout(self, html) -> list:
+        detected = False
+        evidence = ""
+        if html:
+            soup = self.parse_html(html)
+            for form in soup.find_all("form"):
+                inputs = form.find_all("input")
+                has_password = any(i.get("type") == "password" for i in inputs)
+                if has_password and not self._has_captcha(html):
+                    detected = True
+                    evidence = "Login form without account lockout mechanism detected"
+                    break
+
+        return [self.make_result(
+            bug_id="AUTH-055", name="Account Lockout Missing", severity=Severity.MEDIUM,
+            category="Authentication & Session",
+            description="Deteksi form login tanpa mekanisme account lockout.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_password_policy(self, html) -> list:
+        detected = False
+        evidence = ""
+        if html:
+            soup = self.parse_html(html)
+            for inp in soup.find_all("input", {"type": "password"}):
+                minlength = inp.get("minlength", "")
+                pattern = inp.get("pattern", "")
+                if not minlength and not pattern:
+                    detected = True
+                    evidence = f"Password field '{inp.get('name', 'unknown')}' has no minlength or pattern validation"
+                    break
+                elif minlength and int(minlength) < 8:
+                    detected = True
+                    evidence = f"Password field allows short passwords (minlength={minlength})"
+                    break
+
+        return [self.make_result(
+            bug_id="AUTH-057", name="Weak Password Policy", severity=Severity.MEDIUM,
+            category="Authentication & Session",
+            description="Cek apakah form password memiliki validasi kekuatan password.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_autocomplete_password(self, html) -> list:
+        detected = False
+        evidence = ""
+        if html:
+            soup = self.parse_html(html)
+            for inp in soup.find_all("input", {"type": "password"}):
+                autocomplete = inp.get("autocomplete", "").lower()
+                if autocomplete != "off" and autocomplete != "new-password":
+                    detected = True
+                    evidence = f"Password field '{inp.get('name', 'unknown')}' allows autocomplete"
+                    break
+
+        return [self.make_result(
+            bug_id="AUTH-058", name="Password Autocomplete Enabled", severity=Severity.LOW,
+            category="Authentication & Session",
+            description="Cek apakah password field mengizinkan browser autocomplete.",
             detected=detected, evidence=evidence,
         )]

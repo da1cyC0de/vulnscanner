@@ -13,6 +13,7 @@ class ApiAdvancedScanner(BaseModule):
         results.extend(await self._check_idor(session, target_url))
         results.extend(await self._check_graphql_batch(session, target_url))
         results.extend(await self._check_wsdl(session, target_url))
+        results.extend(await self._check_graphql_introspection(session, target_url))
         return results
 
     async def _check_idor(self, session, target_url) -> list:
@@ -94,5 +95,34 @@ class ApiAdvancedScanner(BaseModule):
             bug_id="APIAV-135", name="WSDL Disclosure (SOAP)", severity=Severity.LOW,
             category="API Advanced",
             description="Cek apakah WSDL file SOAP service terekspos.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_graphql_introspection(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        gql_paths = ["graphql", "api/graphql", "gql"]
+        query = '{"query":"{__schema{queryType{name}mutationType{name}subscriptionType{name}}}"}'
+
+        for path in gql_paths:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                headers = self._default_headers()
+                headers["Content-Type"] = "application/json"
+                async with session.post(url, data=query, headers=headers,
+                                        ssl=False, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if "queryType" in text or "mutationType" in text:
+                            detected = True
+                            evidence = f"GraphQL introspection exposes schema details at: {url}"
+                            break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="APIAV-136", name="GraphQL Schema Introspection", severity=Severity.MEDIUM,
+            category="API Advanced",
+            description="GraphQL introspection mengekspos detail schema (queries, mutations).",
             detected=detected, evidence=evidence,
         )]

@@ -13,6 +13,9 @@ class CloudScanner(BaseModule):
         results.extend(await self._check_cloud_metadata(session, target_url))
         results.extend(await self._check_firebase(session, target_url))
         results.extend(await self._check_k8s_docker(session, target_url))
+        results.extend(await self._check_s3_bucket(session, target_url))
+        results.extend(await self._check_azure_blob(session, target_url))
+        results.extend(await self._check_gcp_storage(session, target_url))
         return results
 
     async def _check_cloud_metadata(self, session, target_url) -> list:
@@ -86,4 +89,70 @@ class CloudScanner(BaseModule):
             category="Cloud & Container",
             description="Cek Kubernetes Dashboard atau Docker API yang terekspos.",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    async def _check_s3_bucket(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        html, _ = await self.fetch_text(session, target_url)
+        if html:
+            import re
+            s3_patterns = [
+                r'(https?://[a-zA-Z0-9.-]+\.s3[.-](?:amazonaws\.com|[a-z-]+\.amazonaws\.com)[^\s"\'>]*)',
+                r'(s3://[a-zA-Z0-9./-]+)',
+            ]
+            for p in s3_patterns:
+                match = re.search(p, html)
+                if match:
+                    detected = True
+                    evidence = f"S3 bucket reference found: {match.group()[:100]}"
+                    break
+
+        return [self.make_result(
+            bug_id="CLOUD-150", name="AWS S3 Bucket Exposure", severity=Severity.HIGH,
+            category="Cloud & Container",
+            description="Deteksi referensi S3 bucket yang mungkin misconfigured.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_azure_blob(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        html, _ = await self.fetch_text(session, target_url)
+        if html:
+            import re
+            match = re.search(r'(https?://[a-zA-Z0-9]+\.blob\.core\.windows\.net[^\s"\'>]*)', html)
+            if match:
+                detected = True
+                evidence = f"Azure Blob Storage reference: {match.group()[:100]}"
+
+        return [self.make_result(
+            bug_id="CLOUD-152", name="Azure Blob Storage Exposure", severity=Severity.HIGH,
+            category="Cloud & Container",
+            description="Deteksi referensi Azure Blob Storage yang mungkin terekspos.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_gcp_storage(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        html, _ = await self.fetch_text(session, target_url)
+        if html:
+            import re
+            gcp_patterns = [
+                r'(https?://storage\.googleapis\.com/[^\s"\'>]+)',
+                r'(https?://[a-zA-Z0-9.-]+\.storage\.googleapis\.com[^\s"\'>]*)',
+            ]
+            for p in gcp_patterns:
+                match = re.search(p, html)
+                if match:
+                    detected = True
+                    evidence = f"GCP Storage reference: {match.group()[:100]}"
+                    break
+
+        return [self.make_result(
+            bug_id="CLOUD-154", name="GCP Storage Bucket Exposure", severity=Severity.HIGH,
+            category="Cloud & Container",
+            description="Deteksi referensi Google Cloud Storage yang mungkin terekspos.",
+            detected=detected, evidence=evidence,
         )]

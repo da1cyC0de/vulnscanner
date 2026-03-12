@@ -20,6 +20,8 @@ class ClientSideScanner(BaseModule):
         results.extend(await self._check_cors(session, target_url))
         results.extend(self._check_dom_based(html))
         results.extend(await self._check_source_maps(session, target_url, html))
+        results.extend(self._check_prototype_pollution(html))
+        results.extend(self._check_local_storage_sensitive(html))
 
         return results
 
@@ -147,5 +149,49 @@ class ClientSideScanner(BaseModule):
             bug_id="CLI-025", name="JavaScript Source Map Exposure", severity=Severity.LOW,
             category="Client-Side",
             description="Cek apakah JavaScript source map file (.js.map) terekspos.",
+            detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    def _check_prototype_pollution(self, html) -> list:
+        detected = False
+        evidence = ""
+        patterns = [
+            r'Object\.assign\s*\(\s*{\s*}',
+            r'__proto__',
+            r'constructor\[.prototype.\]',
+            r'\.merge\s*\(', r'\.extend\s*\(', r'\.defaults\s*\(',
+            r'JSON\.parse\s*\(.*?\breturn\b',
+        ]
+        for p in patterns:
+            match = re.search(p, html)
+            if match:
+                detected = True
+                evidence = f"Potential prototype pollution pattern: {match.group()[:80]}"
+                break
+
+        return [self.make_result(
+            bug_id="CLI-026", name="Prototype Pollution Hints", severity=Severity.MEDIUM,
+            category="Client-Side",
+            description="Deteksi pola kode JavaScript yang rentan prototype pollution.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_local_storage_sensitive(self, html) -> list:
+        detected = False
+        evidence_parts = []
+        patterns = [
+            r'localStorage\.setItem\s*\(\s*["\'](?:token|jwt|session|password|secret|api_key|auth)',
+            r'sessionStorage\.setItem\s*\(\s*["\'](?:token|jwt|session|password|secret|api_key|auth)',
+        ]
+        for p in patterns:
+            matches = re.findall(p, html, re.IGNORECASE)
+            if matches:
+                detected = True
+                evidence_parts.append(f"Sensitive data in storage: {matches[0][:80]}")
+
+        return [self.make_result(
+            bug_id="CLI-027", name="Sensitive Data in Client Storage", severity=Severity.MEDIUM,
+            category="Client-Side",
+            description="Deteksi penyimpanan data sensitif (token, password) di localStorage/sessionStorage.",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
         )]

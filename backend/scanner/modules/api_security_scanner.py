@@ -21,6 +21,7 @@ class ApiSecurityScanner(BaseModule):
         results.extend(await self._check_http_methods(session, target_url))
         results.extend(await self._check_rate_limiting(session, target_url))
         results.extend(await self._check_swagger_exposure(session, target_url))
+        results.extend(await self._check_api_version_disclosure(session, target_url))
         return results
 
     async def _check_api_endpoints(self, session, target_url) -> list:
@@ -130,5 +131,28 @@ class ApiSecurityScanner(BaseModule):
             bug_id="API-134", name="Swagger/OpenAPI Docs Exposed", severity=Severity.MEDIUM,
             category="API Security",
             description="Cek apakah dokumentasi API (Swagger/OpenAPI) terekspos.",
+            detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    async def _check_api_version_disclosure(self, session, target_url) -> list:
+        detected = False
+        evidence_parts = []
+        version_paths = ["api/", "api/v1/", "api/v2/", "api/v3/"]
+        for path in version_paths:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if any(w in text.lower() for w in ["version", "api_version", "v1", "v2"]):
+                            detected = True
+                            evidence_parts.append(f"[{resp.status}] API version info at: {url}")
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="API-049", name="API Version Information Disclosure", severity=Severity.LOW,
+            category="API Security",
+            description="Cek apakah API version endpoint mengekspos informasi.",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
         )]

@@ -18,6 +18,7 @@ class AdvancedInjectionScanner(BaseModule):
         results.extend(await self._check_ssti(session, forms))
         results.extend(await self._check_ssrf(session, target_url, forms))
         results.extend(await self._check_xxe(session, target_url))
+        results.extend(await self._check_crlf_injection(session, target_url))
         return results
 
     def _extract_forms(self, html, base_url):
@@ -134,5 +135,32 @@ class AdvancedInjectionScanner(BaseModule):
         return [self.make_result(
             bug_id="ADV-091", name="XML External Entity (XXE)", severity=Severity.CRITICAL,
             category="Advanced Injection", description="Tes XXE Injection.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_crlf_injection(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        test_url = f"{target_url.rstrip('/')}/%0d%0aX-Injected:%20true"
+        try:
+            async with session.get(test_url, ssl=False, allow_redirects=False,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                for header_name, header_val in resp.headers.items():
+                    if "x-injected" in header_name.lower():
+                        detected = True
+                        evidence = f"CRLF injection: injected header reflected — {header_name}: {header_val}"
+                        break
+                if not detected:
+                    location = resp.headers.get("Location", "")
+                    if "X-Injected" in location:
+                        detected = True
+                        evidence = f"CRLF injection reflected in Location header"
+        except Exception:
+            pass
+
+        return [self.make_result(
+            bug_id="ADV-092", name="CRLF Injection", severity=Severity.HIGH,
+            category="Advanced Injection",
+            description="Tes CRLF Injection (HTTP Response Splitting).",
             detected=detected, evidence=evidence,
         )]

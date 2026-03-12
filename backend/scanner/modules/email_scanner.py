@@ -13,6 +13,7 @@ class EmailScanner(BaseModule):
             return results
 
         results.extend(self._check_email_forms(html))
+        results.extend(self._check_email_disclosure(html))
         return results
 
     def _check_email_forms(self, html) -> list:
@@ -32,5 +33,24 @@ class EmailScanner(BaseModule):
             bug_id="EMAIL-114", name="Email Header Injection", severity=Severity.MEDIUM,
             category="Email Vulnerabilities",
             description="Deteksi form email/kontak yang mungkin rentan email header injection.",
+            detected=detected, evidence=evidence,
+        )]
+
+    def _check_email_disclosure(self, html) -> list:
+        detected = False
+        evidence = ""
+        import re
+        email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+        emails = re.findall(email_pattern, html)
+        filtered = [e for e in emails if not e.endswith(('.png', '.jpg', '.gif', '.css', '.js'))]
+        if filtered:
+            unique = list(set(filtered))[:5]
+            detected = True
+            evidence = f"Email addresses exposed: {', '.join(unique)}"
+
+        return [self.make_result(
+            bug_id="EMAIL-115", name="Email Address Disclosure", severity=Severity.LOW,
+            category="Email Vulnerabilities",
+            description="Deteksi alamat email yang terekspos di halaman web (spam/phishing risk).",
             detected=detected, evidence=evidence,
         )]

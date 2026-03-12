@@ -20,6 +20,9 @@ class SourceCodeScanner(BaseModule):
         results.extend(self._check_hardcoded_creds(html))
         results.extend(await self._check_private_keys(session, target_url))
         results.extend(await self._check_package_files(session, target_url))
+        results.extend(await self._check_docker_exposure(session, target_url))
+        results.extend(await self._check_cicd_config(session, target_url))
+        results.extend(self._check_aws_credentials(html))
 
         return results
 
@@ -182,4 +185,78 @@ class SourceCodeScanner(BaseModule):
             category="Source Code & Secrets",
             description="Deteksi file dependency (package.json, composer.json, dll) yang terekspos.",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    async def _check_docker_exposure(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        docker_paths = ["Dockerfile", "docker-compose.yml", "docker-compose.yaml", ".dockerignore"]
+        for dp in docker_paths:
+            url = urljoin(target_url.rstrip("/") + "/", dp)
+            try:
+                async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if any(k in text.lower() for k in ["from ", "run ", "expose", "services:", "image:"]):
+                            detected = True
+                            evidence = f"Docker config exposed at {url}"
+                            break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="SRC-077", name="Docker Configuration Exposed", severity=Severity.HIGH,
+            category="Source Code & Secrets",
+            description="Cek apakah file Dockerfile/docker-compose terekspos.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_cicd_config(self, session, target_url) -> list:
+        detected = False
+        evidence_parts = []
+        cicd_paths = [
+            ".github/workflows/main.yml", ".gitlab-ci.yml", "Jenkinsfile",
+            ".circleci/config.yml", ".travis.yml", "bitbucket-pipelines.yml",
+        ]
+        for cp in cicd_paths:
+            url = urljoin(target_url.rstrip("/") + "/", cp)
+            try:
+                async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if len(text) > 20 and "404" not in text.lower()[:100]:
+                            detected = True
+                            evidence_parts.append(f"[{resp.status}] {url}")
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="SRC-080", name="CI/CD Configuration Exposed", severity=Severity.HIGH,
+            category="Source Code & Secrets",
+            description="Cek file konfigurasi CI/CD yang terekspos (GitHub Actions, GitLab CI, dll).",
+            detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    def _check_aws_credentials(self, html) -> list:
+        if not html:
+            return []
+        detected = False
+        evidence = ""
+        patterns = [
+            (r'AKIA[0-9A-Z]{16}', "AWS Access Key ID"),
+            (r'(?:aws_secret_access_key|AWS_SECRET)\s*[:=]\s*["\']?([a-zA-Z0-9/+=]{40})', "AWS Secret Key"),
+            (r'(?:ASIA[0-9A-Z]{16})', "AWS Temporary Access Key"),
+        ]
+        for pattern, label in patterns:
+            match = re.search(pattern, html)
+            if match:
+                detected = True
+                evidence = f"{label} found: {match.group()[:25]}..."
+                break
+
+        return [self.make_result(
+            bug_id="SRC-083", name="AWS Credentials Exposed", severity=Severity.CRITICAL,
+            category="Source Code & Secrets",
+            description="Deteksi AWS access key/secret yang terekspos di source code.",
+            detected=detected, evidence=evidence,
         )]

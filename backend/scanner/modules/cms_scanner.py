@@ -20,6 +20,8 @@ class CmsScanner(BaseModule):
         results.extend(await self._check_laravel(session, target_url, html))
         results.extend(await self._check_django(session, target_url, html))
         results.extend(await self._check_spring_boot(session, target_url))
+        results.extend(await self._check_nextjs_debug(session, target_url))
+        results.extend(await self._check_strapi_exposed(session, target_url))
 
         return results
 
@@ -185,4 +187,52 @@ class CmsScanner(BaseModule):
             bug_id="CMS-160", name="Spring Boot Actuator Exposed", severity=Severity.HIGH,
             category="CMS Specific", description="Deteksi Spring Boot Actuator endpoints yang terekspos.",
             detected=detected, evidence="\n".join(evidence_parts[:5]),
+        )]
+
+    async def _check_nextjs_debug(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        paths = ["_next/data/", "__nextjs_original-stack-frame", "_next/static/"]
+        for path in paths:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if "buildId" in text or "next" in text.lower():
+                            detected = True
+                            evidence = f"Next.js internal path exposed: {url}"
+                            break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="CMS-163", name="Next.js Debug/Internal Paths", severity=Severity.LOW,
+            category="CMS Specific",
+            description="Deteksi Next.js internal/debug paths yang terekspos.",
+            detected=detected, evidence=evidence,
+        )]
+
+    async def _check_strapi_exposed(self, session, target_url) -> list:
+        detected = False
+        evidence = ""
+        paths = ["admin/", "_health", "content-manager/", "users-permissions/"]
+        for path in paths:
+            url = urljoin(target_url.rstrip("/") + "/", path)
+            try:
+                async with session.get(url, ssl=False, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        text = await resp.text(errors="replace")
+                        if "strapi" in text.lower():
+                            detected = True
+                            evidence = f"Strapi CMS detected at: {url}"
+                            break
+            except Exception:
+                pass
+
+        return [self.make_result(
+            bug_id="CMS-164", name="Strapi CMS Exposed", severity=Severity.MEDIUM,
+            category="CMS Specific",
+            description="Deteksi Strapi CMS dan endpoint admin yang terekspos.",
+            detected=detected, evidence=evidence,
         )]
